@@ -68,10 +68,12 @@ mod tests {
     fn index_of(pairs: &[(u32, u32)]) -> Vec<u8> {
         let mut table = Vec::new();
         for (i, (lower, higher)) in pairs.iter().enumerate() {
+            let record_offset = (i * 100) as u32;
+            let record_len = 10u32;
             table.extend_from_slice(&lower.to_le_bytes());
             table.extend_from_slice(&higher.to_le_bytes());
-            table.extend_from_slice(&((i * 100) as u32).to_le_bytes()); // record_offset
-            table.extend_from_slice(&10u32.to_le_bytes()); // record_len
+            table.extend_from_slice(&record_offset.to_le_bytes());
+            table.extend_from_slice(&record_len.to_le_bytes());
         }
         table
     }

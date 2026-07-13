@@ -3,6 +3,7 @@
 //! offset table. Every other section is only read after this succeeds.
 
 use crate::bytes::{read_u16, read_u32, read_u64};
+use crate::layout;
 use crate::DbError;
 
 pub(crate) const HEADER_LEN: usize = 128;
@@ -31,22 +32,22 @@ impl Header {
             return Err(DbError::Truncated);
         }
 
-        if bytes[0..4] != MAGIC {
+        if bytes[layout::MAGIC] != MAGIC {
             return Err(DbError::BadMagic);
         }
 
-        let format_version = read_u16(bytes, 4)?;
+        let format_version = read_u16(bytes, layout::FORMAT_VERSION.start)?;
         if format_version != SUPPORTED_FORMAT_VERSION {
             return Err(DbError::UnsupportedVersion(format_version));
         }
 
-        let header_len = read_u16(bytes, 6)? as usize;
+        let header_len = read_u16(bytes, layout::HEADER_LEN_FIELD.start)? as usize;
         if header_len < HEADER_LEN {
             return Err(DbError::Truncated);
         }
 
         let header_bytes = bytes.get(..header_len).ok_or(DbError::Truncated)?;
-        let stored_crc = read_u32(header_bytes, 8)?;
+        let stored_crc = read_u32(header_bytes, layout::HEADER_CRC32.start)?;
         let computed_crc = compute_header_crc32(header_bytes);
         if stored_crc != computed_crc {
             return Err(DbError::HeaderChecksumMismatch {
@@ -56,7 +57,7 @@ impl Header {
         }
 
         let payload_sha256: [u8; 32] = header_bytes
-            .get(20..52)
+            .get(layout::PAYLOAD_SHA256)
             .ok_or(DbError::Truncated)?
             .try_into()
             .expect("slice of exactly 32 bytes");
@@ -64,16 +65,16 @@ impl Header {
         let header = Self {
             header_len,
             payload_sha256,
-            drug_count: read_u32(bytes, 52)?,
-            interaction_count: read_u32(bytes, 56)?,
-            string_table_offset: read_u64(bytes, 60)?,
-            string_table_len: read_u64(bytes, 68)?,
-            drug_table_offset: read_u64(bytes, 76)?,
-            drug_table_len: read_u64(bytes, 84)?,
-            interaction_index_offset: read_u64(bytes, 92)?,
-            interaction_index_len: read_u64(bytes, 100)?,
-            interaction_records_offset: read_u64(bytes, 108)?,
-            interaction_records_len: read_u64(bytes, 116)?,
+            drug_count: read_u32(bytes, layout::DRUG_COUNT.start)?,
+            interaction_count: read_u32(bytes, layout::INTERACTION_COUNT.start)?,
+            string_table_offset: read_u64(bytes, layout::STRING_TABLE_OFFSET.start)?,
+            string_table_len: read_u64(bytes, layout::STRING_TABLE_LEN.start)?,
+            drug_table_offset: read_u64(bytes, layout::DRUG_TABLE_OFFSET.start)?,
+            drug_table_len: read_u64(bytes, layout::DRUG_TABLE_LEN.start)?,
+            interaction_index_offset: read_u64(bytes, layout::INTERACTION_INDEX_OFFSET.start)?,
+            interaction_index_len: read_u64(bytes, layout::INTERACTION_INDEX_LEN.start)?,
+            interaction_records_offset: read_u64(bytes, layout::INTERACTION_RECORDS_OFFSET.start)?,
+            interaction_records_len: read_u64(bytes, layout::INTERACTION_RECORDS_LEN.start)?,
         };
 
         header.validate_sections_within(bytes.len())?;
@@ -102,8 +103,8 @@ impl Header {
 
 fn compute_header_crc32(header_bytes: &[u8]) -> u32 {
     let mut hasher = crc32fast::Hasher::new();
-    hasher.update(&header_bytes[0..8]);
-    hasher.update(&header_bytes[12..]);
+    hasher.update(&header_bytes[..layout::HEADER_CRC32.start]);
+    hasher.update(&header_bytes[layout::HEADER_CRC32.end..]);
     hasher.finalize()
 }
 
@@ -113,26 +114,27 @@ pub(crate) mod tests {
 
     pub(crate) fn valid_header_bytes(sections_len: u64) -> Vec<u8> {
         let mut header = vec![0u8; HEADER_LEN];
-        header[0..4].copy_from_slice(&MAGIC);
-        header[4..6].copy_from_slice(&SUPPORTED_FORMAT_VERSION.to_le_bytes());
-        header[6..8].copy_from_slice(&(HEADER_LEN as u16).to_le_bytes());
-        // bytes [8..12) are header_crc32, filled in below once the rest is set
-        header[12..20].copy_from_slice(&0u64.to_le_bytes()); // build_timestamp
-        header[20..52].copy_from_slice(&[0u8; 32]); // payload_sha256, filled by the caller
-        header[52..56].copy_from_slice(&0u32.to_le_bytes()); // drug_count
-        header[56..60].copy_from_slice(&0u32.to_le_bytes()); // interaction_count
-        header[60..68].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes()); // string_table_offset
-        header[68..76].copy_from_slice(&sections_len.to_le_bytes()); // string_table_len
-        header[76..84].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes()); // drug_table_offset
-        header[84..92].copy_from_slice(&0u64.to_le_bytes()); // drug_table_len
-        header[92..100].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes()); // interaction_index_offset
-        header[100..108].copy_from_slice(&0u64.to_le_bytes()); // interaction_index_len
-        header[108..116].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes()); // interaction_records_offset
-        header[116..124].copy_from_slice(&0u64.to_le_bytes()); // interaction_records_len
-        header[124..128].copy_from_slice(&[0u8; 4]); // reserved
+        header[layout::MAGIC].copy_from_slice(&MAGIC);
+        header[layout::FORMAT_VERSION].copy_from_slice(&SUPPORTED_FORMAT_VERSION.to_le_bytes());
+        header[layout::HEADER_LEN_FIELD].copy_from_slice(&(HEADER_LEN as u16).to_le_bytes());
+        header[layout::BUILD_TIMESTAMP].copy_from_slice(&0u64.to_le_bytes());
+        header[layout::PAYLOAD_SHA256].copy_from_slice(&[0u8; 32]);
+        header[layout::DRUG_COUNT].copy_from_slice(&0u32.to_le_bytes());
+        header[layout::INTERACTION_COUNT].copy_from_slice(&0u32.to_le_bytes());
+        header[layout::STRING_TABLE_OFFSET].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        header[layout::STRING_TABLE_LEN].copy_from_slice(&sections_len.to_le_bytes());
+        header[layout::DRUG_TABLE_OFFSET].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        header[layout::DRUG_TABLE_LEN].copy_from_slice(&0u64.to_le_bytes());
+        header[layout::INTERACTION_INDEX_OFFSET]
+            .copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        header[layout::INTERACTION_INDEX_LEN].copy_from_slice(&0u64.to_le_bytes());
+        header[layout::INTERACTION_RECORDS_OFFSET]
+            .copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        header[layout::INTERACTION_RECORDS_LEN].copy_from_slice(&0u64.to_le_bytes());
+        header[layout::RESERVED].copy_from_slice(&[0u8; 4]);
 
         let crc = compute_header_crc32(&header);
-        header[8..12].copy_from_slice(&crc.to_le_bytes());
+        header[layout::HEADER_CRC32].copy_from_slice(&crc.to_le_bytes());
         header
     }
 
@@ -148,14 +150,13 @@ pub(crate) mod tests {
     fn rejects_wrong_magic_bytes() {
         let mut bytes = valid_header_bytes(0);
         bytes[0] = b'X';
-        // magic mismatch alone, crc now stale but magic is checked first
         assert_eq!(Header::parse(&bytes).unwrap_err(), DbError::BadMagic);
     }
 
     #[test]
     fn rejects_an_unsupported_format_version() {
         let mut bytes = valid_header_bytes(0);
-        bytes[4..6].copy_from_slice(&2u16.to_le_bytes());
+        bytes[layout::FORMAT_VERSION].copy_from_slice(&2u16.to_le_bytes());
         assert_eq!(
             Header::parse(&bytes).unwrap_err(),
             DbError::UnsupportedVersion(2)
@@ -165,7 +166,7 @@ pub(crate) mod tests {
     #[test]
     fn rejects_a_tampered_header() {
         let mut bytes = valid_header_bytes(0);
-        bytes[52..56].copy_from_slice(&999u32.to_le_bytes()); // drug_count changed after crc computed
+        bytes[layout::DRUG_COUNT].copy_from_slice(&999u32.to_le_bytes());
         assert!(matches!(
             Header::parse(&bytes).unwrap_err(),
             DbError::HeaderChecksumMismatch { .. }

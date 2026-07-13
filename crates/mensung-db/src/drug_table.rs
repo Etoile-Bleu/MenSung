@@ -121,10 +121,11 @@ mod tests {
 
     #[test]
     fn rejects_a_record_pointing_outside_the_string_table() {
+        let name_len_past_an_empty_string_table = 100u16;
         let mut table = Vec::new();
         table.extend_from_slice(&0u32.to_le_bytes());
         table.extend_from_slice(&0u32.to_le_bytes());
-        table.extend_from_slice(&100u16.to_le_bytes()); // name_len far past an empty string table
+        table.extend_from_slice(&name_len_past_an_empty_string_table.to_le_bytes());
         table.extend_from_slice(&0u16.to_le_bytes());
         assert_eq!(
             parse_record(&table, &[], 0).unwrap_err(),

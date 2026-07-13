@@ -10,6 +10,7 @@ mod error;
 mod header;
 mod interaction_index;
 mod interaction_record;
+mod layout;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
