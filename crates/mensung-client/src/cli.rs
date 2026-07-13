@@ -108,6 +108,6 @@ fn resolve_all<'a>(db: &Database<'a>, queries: &[String]) -> Result<Vec<DrugReco
 }
 
 fn fatal_database_error(err: &DbError) -> ExitCode {
-    eprintln!("Fatal: embedded database is corrupt: {err}");
+    eprintln!("Fatal: installed database is corrupt: {err}");
     ExitCode::from(70)
 }
