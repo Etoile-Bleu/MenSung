@@ -2,7 +2,7 @@
 //! these represents a rejected input, not a bug; callers are expected to
 //! handle them, never to unwrap past them.
 
-use crate::{DrugId, InteractionId};
+use crate::{DrugFactId, DrugId, InteractionId};
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DomainError {
@@ -29,4 +29,22 @@ pub enum DomainError {
 
     #[error("interaction {0:?} has an empty source citation")]
     EmptySource(InteractionId),
+
+    #[error("source id '{0}' must be a non-empty, lowercase slug (letters, digits, hyphens)")]
+    InvalidSourceId(String),
+
+    #[error("source id '{0}' has no display name")]
+    EmptySourceName(String),
+
+    #[error("claim date {year:04}-{month:02}-{day:02} is not a valid calendar date")]
+    InvalidClaimDate { year: u16, month: u8, day: u8 },
+
+    #[error("a claim from source '{0}' has an empty rationale")]
+    EmptyRationale(String),
+
+    #[error("interaction {0:?} was constructed with zero claims; every fact needs at least one")]
+    NoClaimsForInteraction(InteractionId),
+
+    #[error("drug fact {0:?} was constructed with zero claims; every fact needs at least one")]
+    NoClaimsForDrugFact(DrugFactId),
 }
