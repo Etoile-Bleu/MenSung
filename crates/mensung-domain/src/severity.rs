@@ -2,7 +2,11 @@
 //! from most to least dangerous and only controls sort/display priority; it
 //! never controls whether an interaction is returned. The zero false
 //! negative policy in MEDICAL_DATA_POLICY.md applies to every variant,
-//! including `Unknown`, equally.
+//! including `Unknown`, equally. `Display` gives the short label already
+//! used throughout the CLI/TUI; `clinical_meaning` gives the longer
+//! clinical phrase (Absolute contraindication, Strongly discouraged, Use
+//! with caution / monitoring required, Informational / minor interaction)
+//! for contexts with room to show it, such as a claim's full detail view.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Severity {
@@ -21,6 +25,16 @@ impl Severity {
             Severity::Moderate => 2,
             Severity::Minor => 3,
             Severity::Unknown => 4,
+        }
+    }
+
+    pub const fn clinical_meaning(self) -> &'static str {
+        match self {
+            Severity::Contraindicated => "Absolute contraindication",
+            Severity::HighRisk => "Strongly discouraged",
+            Severity::Moderate => "Use with caution / monitoring required",
+            Severity::Minor => "Informational / minor interaction",
+            Severity::Unknown => "Severity not specified by the source",
         }
     }
 }
@@ -88,5 +102,25 @@ mod tests {
     fn display_matches_the_expected_clinical_label() {
         assert_eq!(Severity::Contraindicated.to_string(), "CONTRAINDICATED");
         assert_eq!(Severity::HighRisk.to_string(), "HIGH RISK");
+    }
+
+    #[test]
+    fn clinical_meaning_matches_the_four_tier_scale() {
+        assert_eq!(
+            Severity::Contraindicated.clinical_meaning(),
+            "Absolute contraindication"
+        );
+        assert_eq!(
+            Severity::HighRisk.clinical_meaning(),
+            "Strongly discouraged"
+        );
+        assert_eq!(
+            Severity::Moderate.clinical_meaning(),
+            "Use with caution / monitoring required"
+        );
+        assert_eq!(
+            Severity::Minor.clinical_meaning(),
+            "Informational / minor interaction"
+        );
     }
 }

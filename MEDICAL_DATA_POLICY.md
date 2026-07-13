@@ -73,6 +73,60 @@ not this project's code license; see Data License below. If DDInter's
 certificate is renewed, the live site is tried first and starts succeeding
 again automatically; the mirror is a fallback, not a replacement.
 
+## Trust and Conflict Resolution
+
+DDInter is currently the only source compiled into the shipped database, but
+the domain layer (`mensung-domain`) already models what happens once a
+second source (OpenFDA, DailyMed, or another) is added and disagrees with
+it. This section documents that model now so the policy exists before the
+second source does, not after.
+
+Every clinical fact, an interaction between two drugs or a fact about a
+single drug (contraindication, boxed warning, pregnancy/breastfeeding
+guidance, dosage, indication), is represented as one or more `Claim`s, one
+per contributing source. A `Claim` carries its `Source` (with a stable id,
+a display name, and a trust tier), a `Severity`, an `EvidenceLevel`, a
+`Confidence`, a human-readable rationale, and the date it was last
+confirmed against that source. `InteractionFact` and `DrugFact` hold the
+full list of claims for a given fact. **No claim is ever discarded because
+another source disagrees with it**; this is the same zero-discard principle
+the Zero False Negative Policy above already applies to interactions, now
+extended to sources.
+
+Source tiers, most to least authoritative:
+
+1. Official regulatory sources (FDA, EMA, ANSM, an official SmPC/RCP label)
+2. Clinical practice guidelines and expert body recommendations
+3. Curated pharmaceutical databases (DDInter, DailyMed, OpenFDA)
+4. Secondary or reference material
+
+When claims disagree, `primary_claim()` picks the claim from the most
+authoritative tier present. If more than one claim shares that top tier and
+they still disagree, the tie is broken toward the **more severe** reading,
+never the milder one, so two equally authoritative sources that disagree
+can never quietly resolve to the safer-looking answer. This is what
+`InteractionFact::resolve()` and `DrugFact::primary_claim()` implement in
+`crates/mensung-domain/src/interaction_fact.rs` and `drug_fact.rs`.
+
+Severity itself is a four-tier clinical scale, not a boolean:
+
+| `Severity` variant | `clinical_meaning()` |
+| --- | --- |
+| `Contraindicated` | Absolute contraindication |
+| `HighRisk` | Strongly discouraged |
+| `Moderate` | Use with caution / monitoring required |
+| `Minor` | Informational / minor interaction |
+| `Unknown` | Severity not specified by the source |
+
+The current `.men` format and CLI/TUI display only the single, resolved
+claim (`InteractionFact::resolve()` collapses to the existing `Interaction`
+shape); the other claims stay reachable through `claims()` in memory but
+are not yet persisted to disk or shown in the interface. Making the full
+multi-source provenance visible on disk and on screen needs a `.men` format
+v2 with a shared string table, not built yet; until then, this model exists
+in the domain layer, proven by its own test suite, ahead of the second real
+source that will actually exercise a disagreement.
+
 ## Data License
 
 MenSung's code is dual-licensed under [MIT](LICENSE-MIT) and
