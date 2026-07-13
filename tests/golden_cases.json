@@ -1,0 +1,26 @@
+[
+  {
+    "drug_a": "Aspirin",
+    "drug_b": "Warfarin",
+    "expected_severity": "Contraindicated",
+    "note": "Increased bleeding and hemorrhage risk; the canonical example from README.md."
+  },
+  {
+    "drug_a": "Warfarin",
+    "drug_b": "Amoxicillin",
+    "expected_severity": "Moderate",
+    "note": "Amoxicillin may potentiate warfarin's anticoagulant effect, increasing INR."
+  },
+  {
+    "drug_a": "Aspirin",
+    "drug_b": "Ibuprofen",
+    "expected_severity": "Moderate",
+    "note": "Ibuprofen may reduce aspirin's antiplatelet cardioprotective effect if taken before it."
+  },
+  {
+    "drug_a": "Paracetamol",
+    "drug_b": "Amoxicillin",
+    "expected_severity": null,
+    "note": "No clinically significant interaction between these two; absence here must stay absence."
+  }
+]
