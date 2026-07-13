@@ -70,13 +70,15 @@ negative policy and the golden medical test suite both pass in CI.
 - [x] Exit codes distinguishing "no interaction," "interaction found," "input error," and "internal/database error"
 - [x] Wired to `mensung-core` and `mensung-db` only; no direct filesystem parsing of the database format outside `mensung-db`. The database itself is compiled and embedded at build time via `mensung-builder`, not read from an external file at runtime
 
-## Phase 7: TUI (`mensung-client`)
+## Phase 7: TUI (`mensung-client`) (done, live suggestions still open)
 
-- [ ] `ratatui` + `crossterm` interface
-- [ ] Drug input screens with live fuzzy-match suggestions
-- [ ] Explicit confirmation step for any non-exact match
-- [ ] Color rules: red for danger, yellow for warning, green for no known interaction
-- [ ] Keyboard-only navigation, readable on a low-resolution old laptop screen
+- [x] `ratatui` + `crossterm` interface
+- [ ] Drug input screens with live fuzzy-match suggestions as the user types; today the candidate list appears after Enter on a non-exact match, not live while typing
+- [x] Explicit confirmation step for any non-exact match, same `LookupOutcome` flow as the CLI
+- [x] Color rules: red for contraindicated/high risk, yellow for moderate/minor/unknown, green for no known interaction
+- [x] Keyboard-only navigation (Tab/Up/Down/Enter/Esc/Ctrl-C), no mouse required
+
+Verified interactively in a real terminal (tmux), not just unit-tested: typed input, candidate confirmation, and the results screen all render and respond correctly. That pass caught a real bug the unit tests missed -- dismissing a result screen did not clear the input fields, so a second lookup silently concatenated onto the first. Fixed, with a regression test.
 
 ## Phase 8: Medical Safety Test Suite
 
