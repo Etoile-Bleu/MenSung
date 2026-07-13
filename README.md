@@ -65,30 +65,38 @@ data sources, and validation pipeline.
 ## Architecture
 
 MenSung is a Cargo workspace following Clean/Hexagonal Architecture. The
-dependency direction is one-way, inward:
+dependency direction is one-way toward `mensung-domain`, which never depends
+on anything else in the workspace, so it never knows about the filesystem,
+the database format, the CLI, the TUI, or the network:
 
 ```
-Domain
-  ^
-Application (core)
-  ^
-Infrastructure (db, builder)
-  ^
-Interface (client)
+mensung-domain
+      ^
+      |
+mensung-db  <--------  mensung-builder
+      ^                       ^
+      |                       |
+mensung-core            (offline tool,
+      ^                  not linked into
+      |                  the client)
+mensung-client
 ```
 
 | Crate | Responsibility |
 |-------|----------------|
 | `mensung-domain` | Drug entities, interaction models, severity rules, validation logic. No I/O, no UI, no dependency on anything else in the workspace. |
-| `mensung-core` | Lookup engine, fuzzy matcher, business rules. |
-| `mensung-db` | Binary `.men` database reader: zero-copy access, checksum validation. |
-| `mensung-builder` | OpenFDA/RxNorm/WHO importers, parser, and `.men` database compiler. |
+| `mensung-db` | Binary `.men` database reader: zero-copy access, checksum validation. Depends on `mensung-domain` for shared value types. |
+| `mensung-core` | Lookup engine, fuzzy matcher, business rules. Depends on `mensung-domain` and `mensung-db`, since a lookup has to read the one database format this project ships. |
+| `mensung-builder` | OpenFDA/RxNorm/WHO importers, parser, and `.men` database compiler. Depends on `mensung-domain` and `mensung-db`; it is a separate offline tool, not linked into the `mensung` binary. |
 | `mensung-client` | CLI and TUI (`ratatui` + `crossterm`), the deployed `mensung` binary. |
 
-The domain crate never depends on the TUI, the CLI, the filesystem, the
-network, or any database implementation. Everything a medical worker runs is
-a single statically linked binary with one embedded `.men` database file:
-no installation, no runtime dependencies, no configuration.
+`mensung-core` talks to `mensung-db`'s concrete reader directly rather than
+through a trait-based port: there is exactly one `.men` implementation in
+scope, and a lifetime-generic port over its zero-copy return types would add
+real complexity for no adapter it would ever swap in. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the reasoning. Everything a medical
+worker runs is a single statically linked binary with one embedded `.men`
+database file: no installation, no runtime dependencies, no configuration.
 
 ### Performance targets
 

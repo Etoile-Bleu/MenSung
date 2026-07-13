@@ -59,16 +59,21 @@ test with the same priority as a golden case failure.
 
 | Crate | Responsibility |
 |-------|----------------|
-| `mensung-domain` | Drug entities, interaction models, severity rules, validation logic. No I/O, no UI. |
-| `mensung-core` | Lookup engine, fuzzy matcher, business rules. Depends only on `mensung-domain`. |
-| `mensung-db` | Binary `.men` database reader, zero-copy access, checksum validation. |
+| `mensung-domain` | Drug entities, interaction models, severity rules, validation logic. No I/O, no UI, no dependency on any other workspace crate. |
+| `mensung-db` | Binary `.men` database reader, zero-copy access, checksum validation. Depends on `mensung-domain` for shared value types (`DrugId`, `Severity`, and so on). |
+| `mensung-core` | Lookup engine, fuzzy matcher, business rules. Depends on `mensung-domain` and `mensung-db`, since a lookup has to read the one database format this project ships. |
 | `mensung-builder` | OpenFDA/RxNorm/WHO importers, parser, database compiler. |
 | `mensung-client` | CLI and TUI. The only crate allowed to depend on `ratatui`/`crossterm`. |
 
-Dependency direction is one-way: `mensung-domain` never depends on anything
-else in the workspace. If a change requires the domain crate to know about
-the filesystem, the database format, or the UI, that is a sign the change
-belongs in a different crate.
+Dependency direction is one-way toward `mensung-domain`: it never depends on
+anything else in the workspace, so it never knows about the filesystem, the
+database format, or the UI. `mensung-core` depends directly on `mensung-db`'s
+concrete reader rather than through a trait-based port, deliberately: there
+is exactly one `.men` implementation in this project's scope, and a
+lifetime-generic port abstraction over `mensung-db`'s zero-copy return types
+would add real complexity for no adapter it would ever actually swap in. If
+a second storage backend is ever justified, introduce the port then, against
+a real second implementation, not speculatively now.
 
 ## Rust engineering rules
 
