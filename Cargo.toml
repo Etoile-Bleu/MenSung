@@ -23,6 +23,7 @@ categories = ["command-line-utilities", "science"]
 thiserror = "2.0"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 sha2 = "0.11"
 crc32fast = "1.4"
 strsim = "0.11"
