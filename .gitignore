@@ -15,6 +15,9 @@ validation-report.json
 .DS_Store
 Thumbs.db
 
+# Local Claude Code runtime state, not part of the published repo
+.claude/
+
 # Local env overrides
 .env
 .env.local
