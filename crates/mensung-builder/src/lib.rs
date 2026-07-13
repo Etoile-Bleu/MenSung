@@ -5,20 +5,21 @@
 //! in the writer surfaces as a build failure here, not as a corrupt file
 //! shipped to the field. `ddinter` imports the real dataset (see
 //! MEDICAL_DATA_POLICY.md for why DDInter and not the originally planned
-//! OpenFDA/RxNorm/WHO); `seed` is a small hand-authored placeholder used
-//! until a human runs the DDInter import for real.
+//! OpenFDA/RxNorm/WHO); `download` fetches it over HTTPS, the only
+//! network-touching code in the workspace, used by `mensung-client` to
+//! install the dataset at runtime.
 
 mod ddinter;
+mod download;
 mod error;
 mod report;
-mod seed;
 mod validate;
 mod writer;
 
 pub use ddinter::{import_ddinter, ImportError};
+pub use download::{download_and_import_ddinter, is_cached, DownloadError};
 pub use error::BuildError;
 pub use report::ValidationReport;
-pub use seed::seed_dataset;
 pub use validate::{validate, ValidationIssue};
 
 use mensung_domain::{Drug, Interaction};

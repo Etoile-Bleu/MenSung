@@ -126,7 +126,12 @@ priority because they affect the ZERO FALSE NEGATIVE guarantee above.
 
 ## No Patient Data
 
-MenSung never collects, stores, transmits, or logs patient information. It
-has no network access and no telemetry. The only data it reads is drug names
-typed by the user for a single lookup, and that lookup is not persisted
-anywhere by the application.
+MenSung never collects, stores, transmits, or logs patient information, and
+has no telemetry. The only data it reads is drug names typed by the user
+for a single lookup, and that lookup is not persisted anywhere by the
+application. MenSung's only network activity at all is fetching DDInter's
+public dataset when installing the database for the first time, with
+explicit user confirmation; no patient-identifying information is part of
+that request, and drug lookups made once the database is installed never
+touch the network. See README.md's Security model section for the full
+statement.

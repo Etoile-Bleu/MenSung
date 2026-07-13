@@ -1,13 +1,19 @@
-//! Golden medical test suite: checks the shipped dataset against
-//! tests/golden_cases.json at the workspace root. A build that drops or
-//! weakens one of these cases fails here, per MEDICAL_DATA_POLICY.md and
-//! ROADMAP.md Phase 8. This runs against the bootstrap seed dataset today;
-//! it will point at the real dataset once ROADMAP.md Phase 11 lands, and
-//! this file does not need to change when that happens, only the dataset
-//! `build_database` is given.
+//! Golden medical test suite: checks a dataset against tests/golden_cases.json
+//! at the workspace root. A build that drops or weakens one of these cases
+//! fails here, per MEDICAL_DATA_POLICY.md and ROADMAP.md Phase 8. There is
+//! no dataset embedded in the workspace to check by default: the real
+//! DDInter dataset is installed by `mensung-client` at runtime, not present
+//! during `cargo test`. This builds a small fixture matching
+//! golden_cases.json's entries exactly, so what this test actually proves
+//! is that the checking machinery (this file plus mensung-builder and
+//! mensung-db) correctly validates a dataset against the golden cases; it
+//! does not by itself prove the real installed dataset passes. Run this
+//! same check by hand against a real `.men` file before a release.
 
 use mensung_db::Database;
-use mensung_domain::{DrugPair, Severity};
+use mensung_domain::{
+    Drug, DrugId, DrugPair, EvidenceLevel, InnName, Interaction, InteractionId, Severity,
+};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -28,9 +34,61 @@ fn parse_severity(label: &str) -> Severity {
     }
 }
 
+/// A fixture covering exactly the pairs tests/golden_cases.json exercises,
+/// including one pair (Paracetamol + Amoxicillin) deliberately left out of
+/// the interaction list, since a golden case can also assert that no
+/// interaction is reported.
+fn fixture_dataset() -> (Vec<Drug>, Vec<Interaction>) {
+    let aspirin = DrugId::new(0);
+    let warfarin = DrugId::new(1);
+    let paracetamol = DrugId::new(2);
+    let amoxicillin = DrugId::new(3);
+    let ibuprofen = DrugId::new(4);
+
+    let drugs = vec![
+        Drug::new(aspirin, InnName::parse("Aspirin").unwrap()),
+        Drug::new(warfarin, InnName::parse("Warfarin").unwrap()),
+        Drug::new(paracetamol, InnName::parse("Paracetamol").unwrap()),
+        Drug::new(amoxicillin, InnName::parse("Amoxicillin").unwrap()),
+        Drug::new(ibuprofen, InnName::parse("Ibuprofen").unwrap()),
+    ];
+
+    let interactions = vec![
+        Interaction::new(
+            InteractionId::new(0),
+            DrugPair::new(aspirin, warfarin).unwrap(),
+            Severity::Contraindicated,
+            "Increased bleeding and hemorrhage probability.",
+            EvidenceLevel::Established,
+            "golden_cases.json fixture",
+        )
+        .unwrap(),
+        Interaction::new(
+            InteractionId::new(1),
+            DrugPair::new(warfarin, amoxicillin).unwrap(),
+            Severity::Moderate,
+            "Amoxicillin may potentiate warfarin's anticoagulant effect, increasing INR.",
+            EvidenceLevel::Established,
+            "golden_cases.json fixture",
+        )
+        .unwrap(),
+        Interaction::new(
+            InteractionId::new(2),
+            DrugPair::new(aspirin, ibuprofen).unwrap(),
+            Severity::Moderate,
+            "Ibuprofen may reduce aspirin's antiplatelet cardioprotective effect.",
+            EvidenceLevel::Established,
+            "golden_cases.json fixture",
+        )
+        .unwrap(),
+    ];
+
+    (drugs, interactions)
+}
+
 #[test]
-fn shipped_dataset_matches_golden_cases() {
-    let (drugs, interactions) = mensung_builder::seed_dataset().unwrap();
+fn fixture_dataset_matches_golden_cases() {
+    let (drugs, interactions) = fixture_dataset();
     let (bytes, _report) = mensung_builder::build_database(drugs, interactions).unwrap();
     let db = Database::open(&bytes).unwrap();
 
