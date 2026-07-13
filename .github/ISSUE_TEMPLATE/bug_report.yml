@@ -1,0 +1,65 @@
+name: Bug Report
+description: Something is broken or behaves unexpectedly
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as you can.
+        If this is about incorrect drug or interaction data rather than a software bug, please use the "Medical Data Error" template instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: When I look up Aspirin and Warfarin, MenSung crashes with ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the bug.
+      placeholder: |
+        1. Launch mensung
+        2. Enter "Aspirin" as drug 1
+        3. Enter "Warfarin" as drug 2
+        4. Error: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The interaction result should be shown without error.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: MenSung version
+      placeholder: "0.1.0  (mensung --version or from release tag)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux x86_64
+        - Windows x86_64
+        - macOS x86_64
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or output
+      render: text
