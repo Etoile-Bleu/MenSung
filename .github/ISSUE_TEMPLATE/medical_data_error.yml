@@ -1,0 +1,60 @@
+name: Medical Data Error
+description: A missing, wrong, or outdated drug interaction, severity, or INN mapping
+labels: ["medical-data", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        MenSung follows a zero false negative policy: a missing interaction is worse
+        than an extra warning. Reports here are treated as high priority.
+        See MEDICAL_DATA_POLICY.md for the rules this database follows.
+
+  - type: dropdown
+    id: error_type
+    attributes:
+      label: Type of error
+      options:
+        - Missing interaction (MenSung shows no interaction, but one exists)
+        - Wrong severity level
+        - Incorrect or outdated INN name mapping
+        - Duplicate or conflicting entry
+        - Other data quality issue
+    validations:
+      required: true
+
+  - type: input
+    id: drug1
+    attributes:
+      label: Drug 1 (INN name)
+      placeholder: Warfarin
+    validations:
+      required: true
+
+  - type: input
+    id: drug2
+    attributes:
+      label: Drug 2 (INN name, if applicable)
+      placeholder: Aspirin
+
+  - type: textarea
+    id: current
+    attributes:
+      label: What MenSung currently shows
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What it should show
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: A citation for the correction (OpenFDA, RxNorm, WHO, a clinical reference, or a published study).
+      placeholder: "https://..."
+    validations:
+      required: true

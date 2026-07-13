@@ -1,0 +1,18 @@
+name: Security Report
+description: Report a security vulnerability (do not use this for medical data errors)
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not file public security reports.**
+        Please use [GitHub Private Vulnerability Reporting](https://github.com/Etoile-Bleu/MenSung/security/advisories/new)
+        or email tarto6351@gmail.com, following the process in SECURITY.md.
+        This template exists only so the option is discoverable; submitting it here
+        will create a public issue, which is not appropriate for a vulnerability report.
+
+  - type: markdown
+    attributes:
+      value: |
+        If you landed here by mistake and want to report incorrect drug or interaction
+        data, please close this and use the "Medical Data Error" template instead.
