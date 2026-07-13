@@ -104,6 +104,26 @@ Verified interactively in a real terminal (tmux), not just unit-tested: typed in
 - [ ] `cargo-fuzz` targets: parser (blocked on the real importers existing), fuzzy search engine (not started); binary reader done in Phase 3
 - [ ] Property-based tests for domain validation logic
 
+## Phase 8b: Multi-Source Clinical Fact Model (domain layer done, second source not started)
+
+DDInter alone answers "does an interaction exist and how severe is it."
+Adding DailyMed, OpenFDA, or another regulatory source means those sources
+can disagree with DDInter and with each other; the domain layer needs a way
+to keep every source's claim rather than pick one and silently drop the
+rest. See MEDICAL_DATA_POLICY.md's Trust and Conflict Resolution section
+for the policy this implements.
+
+- [x] `Source` / `SourceId` / `SourceTier`: a named, ranked contributor of clinical claims
+- [x] `Confidence`: a source's own confidence in its claim (`Low`/`Medium`/`High`), kept as an enum rather than a float to avoid NaN/precision handling for a value that is only ever compared, never averaged
+- [x] `ClaimDate`: a minimal, dependency-free calendar date (no `chrono`) for "last confirmed against source," with real calendar validation including leap years
+- [x] `Claim`: one source's severity, evidence level, confidence, rationale, and last-updated date for a single fact
+- [x] `InteractionFact` / `DrugFact`: one or more `Claim`s per fact, `primary_claim()` picks the most authoritative tier present and breaks same-tier ties toward the more severe reading, `resolve()` collapses to the existing single-severity `Interaction` shape without deleting the other claims
+- [x] `Severity::clinical_meaning()`: the four-tier clinical scale (Absolute contraindication / Strongly discouraged / Use with caution / Informational) alongside the existing short display label
+- [x] Full unit test coverage: tier ranking, same-tier severity tie-breaking, zero-claims rejection, calendar date edge cases (leap years, century years, invalid days)
+- [ ] A second real source (OpenFDA Drug Labels is next, pending verification of its real JSON schema) actually producing `Claim`s, to prove the conflict-resolution path against real disagreeing data rather than only synthetic test fixtures
+- [ ] `mensung-builder`'s DDInter importer migrated to produce `Claim`/`InteractionFact` instead of `Interaction` directly -- deferred until there is a second source to combine it with, so this migration happens once, together with real multi-source data, instead of twice
+- [ ] `.men` format v2 with a shared string table, needed to persist and display full multi-source provenance instead of only the resolved view
+
 ## Phase 9: Performance Hardening
 
 - [ ] Benchmark harness (criterion) for startup time and lookup time
