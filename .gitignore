@@ -1,0 +1,20 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# Local build artifacts (compiled medical database, generated at build time)
+/dist/
+*.men
+!crates/mensung-builder/fixtures/*.men
+validation-report.json
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local env overrides
+.env
+.env.local
