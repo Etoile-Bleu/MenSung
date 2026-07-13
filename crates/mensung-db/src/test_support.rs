@@ -8,6 +8,7 @@ use mensung_domain::{EvidenceLevel, Severity};
 use sha2::{Digest, Sha256};
 
 use crate::header::HEADER_LEN;
+use crate::layout;
 
 pub struct TestDrug {
     pub id: u32,
@@ -104,30 +105,33 @@ pub fn build_men_file(mut drugs: Vec<TestDrug>, interactions: &[TestInteraction]
     let payload_sha256: [u8; 32] = Sha256::digest(&payload).into();
 
     let mut header = vec![0u8; HEADER_LEN];
-    header[0..4].copy_from_slice(b"MEN1");
-    header[4..6].copy_from_slice(&1u16.to_le_bytes());
-    header[6..8].copy_from_slice(&(HEADER_LEN as u16).to_le_bytes());
-    header[12..20].copy_from_slice(&0u64.to_le_bytes());
-    header[20..52].copy_from_slice(&payload_sha256);
-    header[52..56].copy_from_slice(&(drugs.len() as u32).to_le_bytes());
-    header[56..60].copy_from_slice(&(sorted_interactions.len() as u32).to_le_bytes());
-    header[60..68].copy_from_slice(&string_table_offset.to_le_bytes());
-    header[68..76].copy_from_slice(&string_table_len.to_le_bytes());
-    header[76..84].copy_from_slice(&drug_table_offset.to_le_bytes());
-    header[84..92].copy_from_slice(&drug_table_len.to_le_bytes());
-    header[92..100].copy_from_slice(&interaction_index_offset.to_le_bytes());
-    header[100..108].copy_from_slice(&interaction_index_len.to_le_bytes());
-    header[108..116].copy_from_slice(&interaction_records_offset.to_le_bytes());
-    header[116..124].copy_from_slice(&interaction_records_len.to_le_bytes());
-    header[124..128].copy_from_slice(&[0u8; 4]);
+    header[layout::MAGIC].copy_from_slice(b"MEN1");
+    header[layout::FORMAT_VERSION].copy_from_slice(&1u16.to_le_bytes());
+    header[layout::HEADER_LEN_FIELD].copy_from_slice(&(HEADER_LEN as u16).to_le_bytes());
+    header[layout::BUILD_TIMESTAMP].copy_from_slice(&0u64.to_le_bytes());
+    header[layout::PAYLOAD_SHA256].copy_from_slice(&payload_sha256);
+    header[layout::DRUG_COUNT].copy_from_slice(&(drugs.len() as u32).to_le_bytes());
+    header[layout::INTERACTION_COUNT]
+        .copy_from_slice(&(sorted_interactions.len() as u32).to_le_bytes());
+    header[layout::STRING_TABLE_OFFSET].copy_from_slice(&string_table_offset.to_le_bytes());
+    header[layout::STRING_TABLE_LEN].copy_from_slice(&string_table_len.to_le_bytes());
+    header[layout::DRUG_TABLE_OFFSET].copy_from_slice(&drug_table_offset.to_le_bytes());
+    header[layout::DRUG_TABLE_LEN].copy_from_slice(&drug_table_len.to_le_bytes());
+    header[layout::INTERACTION_INDEX_OFFSET]
+        .copy_from_slice(&interaction_index_offset.to_le_bytes());
+    header[layout::INTERACTION_INDEX_LEN].copy_from_slice(&interaction_index_len.to_le_bytes());
+    header[layout::INTERACTION_RECORDS_OFFSET]
+        .copy_from_slice(&interaction_records_offset.to_le_bytes());
+    header[layout::INTERACTION_RECORDS_LEN].copy_from_slice(&interaction_records_len.to_le_bytes());
+    header[layout::RESERVED].copy_from_slice(&[0u8; 4]);
 
     let crc = {
         let mut hasher = crc32fast::Hasher::new();
-        hasher.update(&header[0..8]);
-        hasher.update(&header[12..]);
+        hasher.update(&header[..layout::HEADER_CRC32.start]);
+        hasher.update(&header[layout::HEADER_CRC32.end..]);
         hasher.finalize()
     };
-    header[8..12].copy_from_slice(&crc.to_le_bytes());
+    header[layout::HEADER_CRC32].copy_from_slice(&crc.to_le_bytes());
 
     let mut full = header;
     full.extend_from_slice(&payload);
