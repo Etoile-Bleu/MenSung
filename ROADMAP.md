@@ -16,41 +16,41 @@ negative policy and the golden medical test suite both pass in CI.
 - [x] Branch protection on `main`: required status checks (strict), no force-push, no deletion
 - [x] README with medical disclaimer, architecture, and performance targets
 
-## Phase 1: Domain Layer (`mensung-domain`)
+## Phase 1: Domain Layer (`mensung-domain`) (done)
 
-- [ ] Newtype IDs: `DrugId`, `InteractionId` (no bare `u32`/`u64` aliases)
-- [ ] `Drug` entity: INN name, canonical form, no brand names
-- [ ] `Severity` enum: `Contraindicated`, `HighRisk`, `Moderate`, `Minor`, `Unknown`
-- [ ] `Interaction` model: drug pair, severity, description, evidence level, source citation
-- [ ] INN name validation rules (format, normalization, rejected patterns)
-- [ ] Domain error types with `thiserror`, zero `unwrap()` outside tests
-- [ ] Unit tests for every invariant above (severity ordering, INN validation edge cases, duplicate pair detection)
+- [x] Newtype IDs: `DrugId`, `InteractionId` (no bare `u32`/`u64` aliases)
+- [x] `Drug` entity: INN name, canonical form, no brand names
+- [x] `Severity` enum: `Contraindicated`, `HighRisk`, `Moderate`, `Minor`, `Unknown`
+- [x] `Interaction` model: drug pair, severity, description, evidence level, source citation
+- [x] INN name validation rules (format, normalization, rejected patterns)
+- [x] Domain error types with `thiserror`, zero `unwrap()` outside tests
+- [x] Unit tests for every invariant above (severity ordering, INN validation edge cases, self-interaction rejection)
 
-## Phase 2: Binary Database Format (`.men`)
+## Phase 2: Binary Database Format (`.men`) (done)
 
-- [ ] Format specification written down (`docs/DATABASE_FORMAT.md`): header layout, endianness (fixed, documented), versioning strategy, forward-compatibility rules
-- [ ] Header: magic bytes, format version, build timestamp, checksum, section offsets
-- [ ] Drug table: `DrugId` to INN name offset
-- [ ] Interaction index: drug-pair to interaction record lookup
-- [ ] Interaction records: severity, description, evidence level, source
-- [ ] Checksum scheme chosen and documented (e.g. CRC32 for structure, SHA-256 for whole-file integrity)
+- [x] Format specification written down (`docs/DATABASE_FORMAT.md`): header layout, endianness (fixed, documented), versioning strategy, forward-compatibility rules
+- [x] Header: magic bytes, format version, build timestamp, checksum, section offsets
+- [x] Drug table: `DrugId` to INN name offset
+- [x] Interaction index: drug-pair to interaction record lookup
+- [x] Interaction records: severity, description, evidence level, source
+- [x] Checksum scheme chosen and documented (CRC32 for the header, SHA-256 for whole-payload integrity)
 
-## Phase 3: Database Reader (`mensung-db`)
+## Phase 3: Database Reader (`mensung-db`) (done)
 
-- [ ] Zero-copy parsing of the `.men` format
-- [ ] Checksum validation on load, corrupt files rejected with a typed error, never a panic
-- [ ] Drug lookup by `DrugId` and by exact INN name
-- [ ] Interaction-pair lookup
-- [ ] No filesystem access, no allocation, no locking on the lookup hot path
-- [ ] Fuzz target for the binary reader (`cargo-fuzz`), run against malformed and truncated files
+- [x] Zero-copy parsing of the `.men` format, no `unsafe`
+- [x] Checksum validation on load, corrupt files rejected with a typed error, never a panic
+- [x] Drug lookup by exact INN name (binary search); no `DrugId`-keyed lookup was added since nothing in the product flow needs one yet
+- [x] Interaction-pair lookup (binary search)
+- [x] No filesystem access, no allocation, no locking on the lookup hot path
+- [x] Fuzz target for the binary reader (`cargo-fuzz`) plus dependency-free crash tests covering every bit flip and every truncation length of a valid file
 
-## Phase 4: Lookup Engine and Fuzzy Matcher (`mensung-core`)
+## Phase 4: Lookup Engine and Fuzzy Matcher (`mensung-core`) (done)
 
-- [ ] Exact lookup engine wired to `mensung-db`, `<5ms` per lookup
-- [ ] Fuzzy matcher (nucleo or simmetrics) returning ranked candidates with similarity scores, never auto-correcting
-- [ ] Confirmation-flow types: an unmatched name always produces a candidate list, never a silent substitution
-- [ ] Multi-drug interaction checking (more than two drugs in one session)
-- [ ] Unit tests: `Amoxilin` / `Amoxicilin` / `Amoxycillin` all resolve to `Amoxicillin` as a ranked candidate, never automatically
+- [x] Exact lookup engine wired to `mensung-db`; `<5ms` per lookup not yet benchmarked, deferred to Phase 9
+- [x] Fuzzy matcher returning ranked candidates with similarity scores, never auto-correcting. Uses `strsim` (Jaro-Winkler) rather than `nucleo` or `simmetrics`: this is a spelling-correction problem, not an interactive fuzzy-find problem, see `fuzzy.rs`'s header for the reasoning
+- [x] Confirmation-flow types: an unmatched name always produces a candidate list, never a silent substitution
+- [x] Multi-drug interaction checking (more than two drugs in one session), sorted most severe first
+- [x] Unit tests: `Amoxilin` / `Amoxicilin` / `Amoxycillin` all resolve to `Amoxicillin` as the top ranked candidate, never automatically
 
 ## Phase 5: Data Pipeline (`mensung-builder`)
 
