@@ -105,6 +105,7 @@ dependencies = [
 name = "mensung-client"
 version = "0.1.0"
 dependencies = [
+ "mensung-builder",
  "mensung-core",
  "mensung-db",
  "mensung-domain",
