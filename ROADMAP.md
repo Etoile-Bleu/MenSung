@@ -52,7 +52,7 @@ negative policy and the golden medical test suite both pass in CI.
 - [x] Multi-drug interaction checking (more than two drugs in one session), sorted most severe first
 - [x] Unit tests: `Amoxilin` / `Amoxicilin` / `Amoxycillin` all resolve to `Amoxicillin` as the top ranked candidate, never automatically
 
-## Phase 5: Data Pipeline (`mensung-builder`) (writer done, importer open)
+## Phase 5: Data Pipeline (`mensung-builder`) (done, except the builder CLI)
 
 The original plan (OpenFDA + RxNorm + WHO) does not work in practice, checked
 directly rather than assumed: OpenFDA's interaction data is unstructured
@@ -61,11 +61,23 @@ prose, RxNorm's Drug Interaction API was discontinued by the NLM in January
 MEDICAL_DATA_POLICY.md's Data Sources section for the full research and why
 [DDInter](http://ddinter.scbdd.com/) is the actual target now.
 
-- [ ] DDInter importer -- parses DDInter's downloadable CSV export into `mensung_domain::Drug`/`Interaction` values
+- [x] DDInter importer (`mensung_builder::import_ddinter`) -- parses DDInter's downloadable CSV export (RFC 4180, quote-aware) into `mensung_domain::Drug`/`Interaction` values. Verified against the real, full 8-file export: 1939 drugs, 160235 deduplicated interactions, ~160ms to import
 - [x] Validation pipeline: duplicate drugs, dangling drug references, duplicate interaction pairs (invalid INN names and missing severity are already unrepresentable, rejected at construction by `mensung-domain`)
 - [x] `validation-report.json` output (`errors`, `warnings`, `interactions` counts); a build with non-zero errors must not produce a `.men` file
 - [x] `.men` database compiler, with round-trip self-verification through `mensung-db` and `SOURCE_DATE_EPOCH` support for reproducible builds
-- [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, `mensung-client`'s `build.rs` calls the library directly; add once the real importer exists and a human needs to run this by hand
+- [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, `mensung-client`'s `build.rs` calls the library directly; add once a human needs to run this by hand outside a build script
+
+**Known tradeoff, accepted:** compiling the full real DDInter dataset
+produces a `.men` file around 28MB, well past the `<10MB` binary budget in
+Phase 9. Root cause: DDInter's bulk CSV export has no per-pair description
+or citation, only a severity level, so the importer synthesizes a
+description from the severity tier; that synthesized text (and the source
+string) repeats verbatim across most of the 160235 records, and the `.men`
+format inlines description/source per record instead of deduplicating
+repeated text through a shared string table the way the Drug Table already
+does for names. The real fix is a format v2 with a shared string table for
+interaction text, not attempted yet; revisit if the `<10MB` budget turns
+out to matter in practice once this ships.
 
 ## Phase 6: CLI (`mensung-client`) (done for the bootstrap dataset)
 
