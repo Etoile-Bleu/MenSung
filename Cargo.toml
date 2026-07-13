@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mensung-domain",
+    "crates/mensung-core",
+    "crates/mensung-db",
+    "crates/mensung-builder",
+    "crates/mensung-client",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Mathéo Delbarre"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Etoile-Bleu/MenSung"
+homepage = "https://github.com/Etoile-Bleu/MenSung"
+description = "Offline medication interaction checker for humanitarian medical workers"
+keywords = ["medical", "offline", "healthcare", "drug-interactions", "humanitarian"]
+categories = ["command-line-utilities", "science"]
+
+[workspace.dependencies]
+thiserror = "2.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+
+# Small, fast binaries on old hardware: full LTO, single codegen unit, no
+# unwinding tables, stripped symbols. Startup and lookup latency targets
+# (<100ms startup, <5ms lookup) matter more here than compile time.
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
