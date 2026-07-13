@@ -8,6 +8,7 @@ pub(crate) const MAGIC: Range<usize> = 0..4;
 pub(crate) const FORMAT_VERSION: Range<usize> = 4..6;
 pub(crate) const HEADER_LEN_FIELD: Range<usize> = 6..8;
 pub(crate) const HEADER_CRC32: Range<usize> = 8..12;
+#[allow(dead_code)]
 pub(crate) const BUILD_TIMESTAMP: Range<usize> = 12..20;
 pub(crate) const PAYLOAD_SHA256: Range<usize> = 20..52;
 pub(crate) const DRUG_COUNT: Range<usize> = 52..56;
@@ -20,4 +21,5 @@ pub(crate) const INTERACTION_INDEX_OFFSET: Range<usize> = 92..100;
 pub(crate) const INTERACTION_INDEX_LEN: Range<usize> = 100..108;
 pub(crate) const INTERACTION_RECORDS_OFFSET: Range<usize> = 108..116;
 pub(crate) const INTERACTION_RECORDS_LEN: Range<usize> = 116..124;
+#[allow(dead_code)]
 pub(crate) const RESERVED: Range<usize> = 124..128;
