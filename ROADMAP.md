@@ -65,7 +65,8 @@ MEDICAL_DATA_POLICY.md's Data Sources section for the full research and why
 - [x] Validation pipeline: duplicate drugs, dangling drug references, duplicate interaction pairs (invalid INN names and missing severity are already unrepresentable, rejected at construction by `mensung-domain`)
 - [x] `validation-report.json` output (`errors`, `warnings`, `interactions` counts); a build with non-zero errors must not produce a `.men` file
 - [x] `.men` database compiler, with round-trip self-verification through `mensung-db` and `SOURCE_DATE_EPOCH` support for reproducible builds
-- [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, `mensung-client`'s `build.rs` calls the library directly; add once a human needs to run this by hand outside a build script
+- [x] `download` module (`mensung_builder::download_and_import_ddinter`) -- fetches DDInter's eight CSV files over HTTPS with TLS validation never disabled, used by `mensung-client` at runtime (see Phase 6); the only network-touching code in the workspace
+- [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, nothing currently needs to run this outside of `mensung-client`'s own runtime install flow; add once a human needs to run this by hand
 
 **Known tradeoff, accepted:** compiling the full real DDInter dataset
 produces a `.men` file around 28MB, well past the `<10MB` binary budget in
@@ -79,12 +80,12 @@ does for names. The real fix is a format v2 with a shared string table for
 interaction text, not attempted yet; revisit if the `<10MB` budget turns
 out to matter in practice once this ships.
 
-## Phase 6: CLI (`mensung-client`) (done for the bootstrap dataset)
+## Phase 6: CLI (`mensung-client`) (done)
 
 - [x] Two-drug (and N-drug) interaction lookup command
 - [x] Plain-text output mode; JSON output mode not added, nothing consumes it yet
 - [x] Exit codes distinguishing "no interaction," "interaction found," "input error," and "internal/database error"
-- [x] Wired to `mensung-core` and `mensung-db` only; no direct filesystem parsing of the database format outside `mensung-db`. The database itself is compiled and embedded at build time via `mensung-builder`, not read from an external file at runtime
+- [x] Wired to `mensung-core` and `mensung-db` for lookups; `mensung-builder` for installing the database at runtime if missing (`data.rs`), the only network-touching path in the binary, gated on explicit user confirmation. No dataset is embedded at build time; see MEDICAL_DATA_POLICY.md's Data License section and README.md's Security model for what this means and why
 
 ## Phase 7: TUI (`mensung-client`) (done, live suggestions still open)
 

@@ -113,24 +113,30 @@ jobs:
           cat > /tmp/release_body.md << EOF
           Offline medication interaction checker for humanitarian medical workers.
 
-          This release ships the bootstrap seed dataset (five drugs, three
-          textbook interactions), not the full DDInter dataset yet.
-          See MEDICAL_DATA_POLICY.md and ROADMAP.md Phase 11.
+          No dataset is embedded in this binary. Run it and it offers to
+          install DDInter's dataset (CC BY-NC-SA 4.0) the first time, or
+          place a pre-built medical_database.men next to it yourself.
+          See MEDICAL_DATA_POLICY.md and the Usage section of README.md.
 
-          ### Install
+          ### Download
 
           \`\`\`bash
           # Linux x86_64
           curl -fsSL -o mensung https://github.com/${REPO}/releases/download/${TAG}/mensung-linux-x86_64
-          chmod +x mensung && sudo mv mensung /usr/local/bin/
+          chmod +x mensung
 
           # macOS x86_64
           curl -fsSL -o mensung https://github.com/${REPO}/releases/download/${TAG}/mensung-macos-x86_64
-          chmod +x mensung && sudo mv mensung /usr/local/bin/
+          chmod +x mensung
 
           # Windows (PowerShell)
           Invoke-WebRequest -Uri "https://github.com/${REPO}/releases/download/${TAG}/mensung-windows-x86_64.exe" -OutFile mensung.exe
           \`\`\`
+
+          Run it from wherever you put it; \`medical_database.men\` is
+          created right next to it on first run. Move both files together
+          if you relocate it, or set \`MENSUNG_DATA_DIR\` to keep the
+          database somewhere else.
 
           ### Verify checksums
 
@@ -171,12 +177,16 @@ jobs:
         run: |
           chmod +x bin/mensung-linux-x86_64
 
+          # No dataset is installed in this fresh CI environment. The
+          # binary must refuse to guess and exit cleanly rather than crash
+          # or hang; that refusal is itself the property this test checks.
+          # It deliberately does not depend on a live network install,
+          # which would make a release gate flaky against a third-party
+          # site's uptime.
           set +e
-          bin/mensung-linux-x86_64 Aspirin Warfarin > known.txt
+          MENSUNG_DOWNLOAD_DDINTER=0 bin/mensung-linux-x86_64 Aspirin Warfarin < /dev/null > out.txt 2>&1
+          status=$?
           set -e
-          grep -q "CONTRAINDICATED" known.txt || { echo "expected CONTRAINDICATED"; cat known.txt; exit 1; }
-          echo "known interaction: OK"
-
-          bin/mensung-linux-x86_64 Paracetamol Amoxicillin > unknown.txt
-          grep -q "No known interaction" unknown.txt || { echo "expected no interaction"; cat unknown.txt; exit 1; }
-          echo "no interaction: OK"
+          [ "$status" -eq 70 ] || { echo "expected exit code 70, got $status"; cat out.txt; exit 1; }
+          grep -q "No medication database found" out.txt || { echo "expected a clear missing-database message"; cat out.txt; exit 1; }
+          echo "graceful no-database refusal: OK"

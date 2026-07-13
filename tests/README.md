@@ -7,15 +7,17 @@ from the per-crate unit tests that live under each `crates/*/src`.
   => Contraindicated, Paracetamol + Amoxicillin => no interaction, and more
   as the dataset grows). Checked by
   `crates/mensung-builder/tests/golden_cases.rs` on every `cargo test
-  --workspace`. A build that drops or weakens a case fails that test; see
-  MEDICAL_DATA_POLICY.md. It runs against the bootstrap seed dataset today
-  and will run against the real dataset once ROADMAP.md Phase 11 lands,
-  without needing to change.
+  --workspace`, against a small fixture built to match this file exactly,
+  since no dataset is embedded in the workspace to test by default (the
+  real dataset is installed by `mensung-client` at runtime; see
+  README.md's Usage section). Run the same check by hand against a real
+  `.men` file before a release. A build that drops or weakens a case fails
+  the test; see MEDICAL_DATA_POLICY.md.
 
 Planned, not yet added:
 
-- Fuzz targets for the builder's data-format parser, once the real DDInter
-  importer exists (ROADMAP.md Phase 5). A fuzz target for the `.men` binary
-  reader already exists in `fuzz/`.
+- A fuzz target for the DDInter CSV parser (`mensung-builder`'s `ddinter`
+  module). A fuzz target for the `.men` binary reader already exists in
+  `fuzz/`.
 - Property-based tests for domain validation logic.
 - CLI integration tests for `mensung-client`.

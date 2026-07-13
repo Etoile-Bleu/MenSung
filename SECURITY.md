@@ -1,13 +1,16 @@
 # Security Policy
 
-MenSung is an offline medication interaction checker intended for use by
-doctors, nurses, and humanitarian medical workers in environments without
-reliable internet access. It does not connect to the network, does not
-collect patient data, and does not send telemetry of any kind. Even so,
-software defects in a clinical decision-support tool can contribute to
-patient harm, so security issues are taken seriously. If you find a
-vulnerability, please follow the process below so it can be addressed
-responsibly before any public disclosure.
+MenSung is a medication interaction checker intended for use by doctors,
+nurses, and humanitarian medical workers, including in environments without
+reliable internet access. Every drug lookup is answered locally with no
+network call. The one exception is installing the database the first time:
+`mensung` fetches DDInter's public dataset over HTTPS, only with explicit
+user confirmation, only from `ddinter.scbdd.com`, with TLS certificate
+validation never disabled. MenSung does not collect patient data and does
+not send telemetry of any kind. Software defects in a clinical
+decision-support tool can contribute to patient harm, so security issues
+are taken seriously. If you find a vulnerability, please follow the process
+below so it can be addressed responsibly before any public disclosure.
 
 For concerns about incorrect medical data (a missing or wrong drug
 interaction, wrong severity, wrong INN mapping) rather than a security
@@ -110,6 +113,10 @@ both parties agree.
   in offset/length handling, checksum bypass, zero-copy parsing vulnerabilities
 - **Builder pipeline** -- injection via imported DDInter source data, path
   traversal in importer file handling
+- **Runtime dataset install** (`mensung-client`'s data module,
+  `mensung-builder`'s downloader) -- TLS certificate validation bypass, MITM
+  acceptance, following redirects to an unexpected host, path traversal or
+  symlink issues when writing the downloaded database
 - **Fuzzy matcher** -- denial-of-service via pathological input, panics on
   malformed or adversarial drug name strings
 - **CLI/TUI** -- command injection via flags or arguments, path traversal in
