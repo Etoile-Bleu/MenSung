@@ -25,6 +25,7 @@ anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.11"
 crc32fast = "1.4"
+strsim = "0.11"
 
 # Small, fast binaries on old hardware: full LTO, single codegen unit, no
 # unwinding tables, stripped symbols. Startup and lookup latency targets
