@@ -11,6 +11,9 @@ mod header;
 mod interaction_index;
 mod interaction_record;
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
+
 pub use database::{Database, DrugIter};
 pub use drug_table::DrugRecord;
 pub use error::DbError;
