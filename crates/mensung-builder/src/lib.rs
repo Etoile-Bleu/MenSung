@@ -3,17 +3,19 @@
 //! mensung-db only ever reads it. See docs/DATABASE_FORMAT.md. Every build
 //! re-opens its own output through mensung-db before returning it, so a bug
 //! in the writer surfaces as a build failure here, not as a corrupt file
-//! shipped to the field. A real DDInter importer is ROADMAP.md Phase 5 work
-//! still open (see MEDICAL_DATA_POLICY.md for why DDInter and not the
-//! originally planned OpenFDA/RxNorm/WHO); today this crate ships the
-//! compiler, the validation pipeline, and a small bootstrap seed dataset.
+//! shipped to the field. `ddinter` imports the real dataset (see
+//! MEDICAL_DATA_POLICY.md for why DDInter and not the originally planned
+//! OpenFDA/RxNorm/WHO); `seed` is a small hand-authored placeholder used
+//! until a human runs the DDInter import for real.
 
+mod ddinter;
 mod error;
 mod report;
 mod seed;
 mod validate;
 mod writer;
 
+pub use ddinter::{import_ddinter, ImportError};
 pub use error::BuildError;
 pub use report::ValidationReport;
 pub use seed::seed_dataset;
