@@ -27,6 +27,8 @@ serde_json = "1.0"
 sha2 = "0.11"
 crc32fast = "1.4"
 strsim = "0.11"
+ratatui = "0.30"
+crossterm = "0.29"
 
 # Small, fast binaries on old hardware: full LTO, single codegen unit, no
 # unwinding tables, stripped symbols. Startup and lookup latency targets

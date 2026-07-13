@@ -121,15 +121,23 @@ required at runtime.
 
 ## Usage
 
+Run `mensung` with no arguments for the interactive terminal interface: two
+input fields, Tab to switch between them, Enter to check. A typed name with
+no exact match shows a ranked candidate list with a similarity score and
+waits for confirmation; it never guesses. Interactions are shown red for
+contraindicated or high risk, yellow for moderate, minor, or unknown
+severity, green for no known interaction. Esc or Ctrl-C quits.
+
 ```bash
 mensung <drug-1> <drug-2> [<drug-3> ...]
 ```
 
-Two or more INN drug names in, every known pairwise interaction out, most
-severe first. Exit codes: `0` no known interaction, `1` an interaction was
-found or a name could not be resolved, `2` bad command-line usage, `70` an
-internal or database error. A typed name with no exact match returns a
-ranked candidate list instead of guessing:
+Run it with two or more drug names for the scriptable command-line mode
+instead: every known pairwise interaction out, most severe first. Exit
+codes: `0` no known interaction, `1` an interaction was found or a name
+could not be resolved, `2` bad command-line usage, `70` an internal or
+database error. A typed name with no exact match returns a ranked candidate
+list instead of guessing, same as the interactive mode:
 
 ```
 $ mensung Amoxilin Aspirin
