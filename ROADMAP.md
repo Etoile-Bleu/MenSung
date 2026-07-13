@@ -65,7 +65,7 @@ MEDICAL_DATA_POLICY.md's Data Sources section for the full research and why
 - [x] Validation pipeline: duplicate drugs, dangling drug references, duplicate interaction pairs (invalid INN names and missing severity are already unrepresentable, rejected at construction by `mensung-domain`)
 - [x] `validation-report.json` output (`errors`, `warnings`, `interactions` counts); a build with non-zero errors must not produce a `.men` file
 - [x] `.men` database compiler, with round-trip self-verification through `mensung-db` and `SOURCE_DATE_EPOCH` support for reproducible builds
-- [x] `download` module (`mensung_builder::download_and_import_ddinter`) -- fetches DDInter's eight CSV files over HTTPS with TLS validation never disabled, used by `mensung-client` at runtime (see Phase 6); the only network-touching code in the workspace
+- [x] `download` module (`mensung_builder::download_and_import_ddinter`) -- fetches DDInter's eight CSV files over HTTPS with TLS validation never disabled, used by `mensung-client` at runtime (see Phase 6); the only network-touching code in the workspace. Falls back to a mirror on this project's own GitHub Releases (`ddinter-mirror-2025-08-30`) when DDInter's site cannot be reached over a validated connection, which has been true every time this was checked while building this phase; see MEDICAL_DATA_POLICY.md
 - [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, nothing currently needs to run this outside of `mensung-client`'s own runtime install flow; add once a human needs to run this by hand
 
 **Known tradeoff, accepted:** compiling the full real DDInter dataset
