@@ -235,10 +235,13 @@ surface in the shipped binary:
 
 - It never runs automatically or silently; it only runs when
   `medical_database.men` is missing and the user has said yes.
-- It fetches from `ddinter.scbdd.com` only, nothing else.
-- TLS certificate validation is never disabled. An invalid or expired
-  certificate is a hard failure, not a fallback to an unverified
-  connection.
+- It fetches from `ddinter.scbdd.com` first, and only from one other host:
+  this project's own GitHub Releases, as a fallback mirror of the exact
+  same files, used when DDInter's own TLS certificate cannot be validated
+  (true as of this writing; see MEDICAL_DATA_POLICY.md). Nothing else.
+- TLS certificate validation is never disabled on either source. An
+  invalid or expired certificate is a hard failure, not a fallback to an
+  unverified connection.
 - Once a database is installed, every drug lookup is answered locally; the
   lookup path itself makes no network calls, regardless of how the
   database got there.

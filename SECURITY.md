@@ -114,9 +114,11 @@ both parties agree.
 - **Builder pipeline** -- injection via imported DDInter source data, path
   traversal in importer file handling
 - **Runtime dataset install** (`mensung-client`'s data module,
-  `mensung-builder`'s downloader) -- TLS certificate validation bypass, MITM
-  acceptance, following redirects to an unexpected host, path traversal or
-  symlink issues when writing the downloaded database
+  `mensung-builder`'s downloader, both `ddinter.scbdd.com` and the
+  project's own GitHub Release mirror it falls back to) -- TLS certificate
+  validation bypass, MITM acceptance, following redirects to an unexpected
+  host, path traversal or symlink issues when writing the downloaded
+  database
 - **Fuzzy matcher** -- denial-of-service via pathological input, panics on
   malformed or adversarial drug name strings
 - **CLI/TUI** -- command injection via flags or arguments, path traversal in

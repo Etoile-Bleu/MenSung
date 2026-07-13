@@ -61,6 +61,18 @@ found after checking each of these directly. See
 [Data License](#data-license) below for what that choice means for
 redistribution.
 
+`ddinter.scbdd.com`'s TLS certificate was found expired while building the
+importer (checked directly and repeatedly, not assumed). Rather than ever
+accept an unverified connection, `mensung-builder`'s downloader falls back
+to an unmodified, byte-for-byte mirror of the same eight files hosted as
+assets on this project's own [GitHub
+Release](https://github.com/Etoile-Bleu/MenSung/releases/tag/ddinter-mirror-2025-08-30),
+fetched via a Wayback Machine snapshot when the live site could not be
+reached securely. That mirror is redistributed under DDInter's own license,
+not this project's code license; see Data License below. If DDInter's
+certificate is renewed, the live site is tried first and starts succeeding
+again automatically; the mirror is a fallback, not a replacement.
+
 ## Data License
 
 MenSung's code is dual-licensed under [MIT](LICENSE-MIT) and
