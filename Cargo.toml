@@ -30,6 +30,7 @@ strsim = "0.11"
 ratatui = "0.30"
 crossterm = "0.29"
 csv = "1.4"
+ureq = "3.3"
 
 # Small, fast binaries on old hardware: full LTO, single codegen unit, no
 # unwinding tables, stripped symbols. Startup and lookup latency targets
