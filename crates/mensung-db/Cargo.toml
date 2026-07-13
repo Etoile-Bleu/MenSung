@@ -12,3 +12,6 @@ categories.workspace = true
 
 [dependencies]
 mensung-domain = { version = "0.1.0", path = "../mensung-domain" }
+thiserror.workspace = true
+sha2.workspace = true
+crc32fast.workspace = true
