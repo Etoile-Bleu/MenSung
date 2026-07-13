@@ -1,0 +1,10 @@
+# Default owner for everything
+* @Etoile-Bleu
+
+# Security-sensitive and medical-safety-sensitive paths
+SECURITY.md @Etoile-Bleu
+MEDICAL_DATA_POLICY.md @Etoile-Bleu
+crates/mensung-domain/ @Etoile-Bleu
+crates/mensung-db/ @Etoile-Bleu
+crates/mensung-builder/ @Etoile-Bleu
+tests/golden_cases.json @Etoile-Bleu
