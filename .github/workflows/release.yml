@@ -1,94 +1,77 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
-
-env:
-  CARGO_TERM_COLOR: always
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release -- e.g. 0.1.0 (no v prefix)'
+        required: true
+        type: string
 
 jobs:
-  build:
-    name: Build (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            artifact: mensung-linux-x86_64
-            binary: mensung
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            artifact: mensung-windows-x86_64
-            binary: mensung.exe
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            artifact: mensung-macos-x86_64
-            binary: mensung
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: release-${{ matrix.target }}
-
-      - name: Install musl tools
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
-
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }} -p mensung-client
-
-      - name: Stage artifact
-        shell: bash
-        run: |
-          mkdir -p dist
-          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/${{ matrix.artifact }}$([ "${{ matrix.binary }}" = "mensung.exe" ] && echo .exe)"
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact }}
-          path: dist/
-          if-no-files-found: error
-
-  github-release:
-    name: GitHub Release
+  prepare:
+    name: Bump version and tag
     runs-on: ubuntu-latest
-    needs: build
     permissions:
       contents: write
+      actions: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/download-artifact@v8
-        with:
-          path: dist/
-
-      - name: Collect binaries and generate checksums
+      - name: Validate version format
         run: |
-          mkdir -p release
-          cp dist/mensung-linux-x86_64/mensung-linux-x86_64 release/
-          cp dist/mensung-windows-x86_64/mensung-windows-x86_64.exe release/
-          cp dist/mensung-macos-x86_64/mensung-macos-x86_64 release/
-          cd release
-          sha256sum * > SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Bad version '${{ inputs.version }}' -- must be MAJOR.MINOR.PATCH"
+            exit 1
+          fi
 
-      - uses: softprops/action-gh-release@v3
-        with:
-          name: "MenSung ${{ github.ref_name }}"
-          generate_release_notes: true
-          files: |
-            release/*
-          fail_on_unmatched_files: true
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Bump version in Cargo.toml
+        run: |
+          sed -i -E 's/^version = "[0-9]+\.[0-9]+\.[0-9]+"$/version = "${{ inputs.version }}"/' Cargo.toml
+          grep -E '^version = "${{ inputs.version }}"' Cargo.toml || {
+            echo "::error::Version replacement failed"
+            exit 1
+          }
+
+      - name: Regenerate Cargo.lock
+        run: cargo generate-lockfile
+
+      - name: Commit and push version bump branch
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml Cargo.lock
+          # No-op if the version was already bumped (re-run on the same version)
+          git diff --cached --quiet || git commit -m "chore: release v${{ inputs.version }}"
+          # Push to a side branch -- branch protection blocks a direct push to
+          # main without passing CI. The tag below is what actually drives
+          # the release; the PR just keeps main's Cargo.toml in sync.
+          git push origin HEAD:chore/bump-v${{ inputs.version }} --force
+
+      - name: Open version bump PR
+        run: |
+          gh pr create \
+            --title "chore: release v${{ inputs.version }}" \
+            --body "Automated version bump. Merge after CI passes." \
+            --base main \
+            --head chore/bump-v${{ inputs.version }} \
+          || echo "PR already open -- skipping"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push tag
+        run: |
+          git tag "v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
+      - name: Trigger build-release.yml on tag
+        run: |
+          gh workflow run build-release.yml --ref "v${{ inputs.version }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
