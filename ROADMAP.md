@@ -80,11 +80,11 @@ negative policy and the golden medical test suite both pass in CI.
 
 Verified interactively in a real terminal (tmux), not just unit-tested: typed input, candidate confirmation, and the results screen all render and respond correctly. That pass caught a real bug the unit tests missed -- dismissing a result screen did not clear the input fields, so a second lookup silently concatenated onto the first. Fixed, with a regression test.
 
-## Phase 8: Medical Safety Test Suite
+## Phase 8: Medical Safety Test Suite (golden cases done, rest open)
 
-- [ ] `tests/golden_cases.json`: fixed known-interaction cases (Aspirin + Warfarin => critical, Paracetamol + Amoxicillin => no interaction, and more as the dataset grows)
-- [ ] CI gate: a build that drops or weakens a golden case fails, no exceptions without a documented clinical reason
-- [ ] `cargo-fuzz` targets: parser, binary reader, fuzzy search engine
+- [x] `tests/golden_cases.json`: fixed known-interaction cases (Aspirin + Warfarin => Contraindicated, Paracetamol + Amoxicillin => no interaction, and two more as the dataset grows)
+- [x] CI gate: `crates/mensung-builder/tests/golden_cases.rs` runs as part of `cargo test --workspace`; a build that drops or weakens a case fails it, no separate invocation needed
+- [ ] `cargo-fuzz` targets: parser (blocked on the real importers existing), fuzzy search engine (not started); binary reader done in Phase 3
 - [ ] Property-based tests for domain validation logic
 
 ## Phase 9: Performance Hardening
