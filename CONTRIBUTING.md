@@ -62,7 +62,7 @@ test with the same priority as a golden case failure.
 | `mensung-domain` | Drug entities, interaction models, severity rules, validation logic. No I/O, no UI, no dependency on any other workspace crate. |
 | `mensung-db` | Binary `.men` database reader, zero-copy access, checksum validation. Depends on `mensung-domain` for shared value types (`DrugId`, `Severity`, and so on). |
 | `mensung-core` | Lookup engine, fuzzy matcher, business rules. Depends on `mensung-domain` and `mensung-db`, since a lookup has to read the one database format this project ships. |
-| `mensung-builder` | OpenFDA/RxNorm/WHO importers, parser, database compiler. |
+| `mensung-builder` | DDInter importer, parser, database compiler. |
 | `mensung-client` | CLI and TUI. The only crate allowed to depend on `ratatui`/`crossterm`. |
 
 Dependency direction is one-way toward `mensung-domain`: it never depends on

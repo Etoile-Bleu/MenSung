@@ -52,16 +52,20 @@ negative policy and the golden medical test suite both pass in CI.
 - [x] Multi-drug interaction checking (more than two drugs in one session), sorted most severe first
 - [x] Unit tests: `Amoxilin` / `Amoxicilin` / `Amoxycillin` all resolve to `Amoxicillin` as the top ranked candidate, never automatically
 
-## Phase 5: Data Pipeline (`mensung-builder`) (writer done, importers open)
+## Phase 5: Data Pipeline (`mensung-builder`) (writer done, importer open)
 
-- [ ] OpenFDA importer -- needs real schema research, not attempted yet
-- [ ] RxNorm importer -- needs real schema research, not attempted yet
-- [ ] WHO dataset importer -- needs real schema research, not attempted yet
-- [ ] Common intermediate schema shared across importers
+The original plan (OpenFDA + RxNorm + WHO) does not work in practice, checked
+directly rather than assumed: OpenFDA's interaction data is unstructured
+prose, RxNorm's Drug Interaction API was discontinued by the NLM in January
+2024, and WHO has no public structured DDI dataset. See
+MEDICAL_DATA_POLICY.md's Data Sources section for the full research and why
+[DDInter](http://ddinter.scbdd.com/) is the actual target now.
+
+- [ ] DDInter importer -- parses DDInter's downloadable CSV export into `mensung_domain::Drug`/`Interaction` values
 - [x] Validation pipeline: duplicate drugs, dangling drug references, duplicate interaction pairs (invalid INN names and missing severity are already unrepresentable, rejected at construction by `mensung-domain`)
 - [x] `validation-report.json` output (`errors`, `warnings`, `interactions` counts); a build with non-zero errors must not produce a `.men` file
 - [x] `.men` database compiler, with round-trip self-verification through `mensung-db` and `SOURCE_DATE_EPOCH` support for reproducible builds
-- [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, `mensung-client`'s `build.rs` calls the library directly; add once the real importers exist and a human needs to run this by hand
+- [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, `mensung-client`'s `build.rs` calls the library directly; add once the real importer exists and a human needs to run this by hand
 
 ## Phase 6: CLI (`mensung-client`) (done for the bootstrap dataset)
 
@@ -102,7 +106,7 @@ Verified interactively in a real terminal (tmux), not just unit-tested: typed in
 
 ## Phase 11: First Public Dataset and v1.0.0
 
-- [ ] Full dataset build from OpenFDA + RxNorm + WHO sources, target scale in the hundreds of thousands of interaction records
+- [ ] Full dataset build from DDInter (~300k DDI records across ~2300 drugs); ships under CC BY-NC-SA 4.0 per MEDICAL_DATA_POLICY.md's Data License section, separate from the MIT/Apache code license
 - [ ] `validation-report.json` with zero errors on the shipped dataset
 - [ ] Field deployment guide: how to copy the binary to an offline machine, how to verify the checksum, how to report a data error from the field
 - [ ] `v1.0.0` tag, `release.yml` run, binaries and `SHA256SUMS.txt` published for Linux/Windows/macOS

@@ -92,7 +92,7 @@ mensung-client
 | `mensung-domain` | Drug entities, interaction models, severity rules, validation logic. No I/O, no UI, no dependency on anything else in the workspace. |
 | `mensung-db` | Binary `.men` database reader: zero-copy access, checksum validation. Depends on `mensung-domain` for shared value types. |
 | `mensung-core` | Lookup engine, fuzzy matcher, business rules. Depends on `mensung-domain` and `mensung-db`, since a lookup has to read the one database format this project ships. |
-| `mensung-builder` | OpenFDA/RxNorm/WHO importers, parser, and `.men` database compiler. Depends on `mensung-domain` and `mensung-db`; it is a separate offline tool, not linked into the `mensung` binary. |
+| `mensung-builder` | DDInter importer, parser, and `.men` database compiler. Depends on `mensung-domain` and `mensung-db`; it is a separate offline tool, not linked into the `mensung` binary. |
 | `mensung-client` | CLI and TUI (`ratatui` + `crossterm`), the deployed `mensung` binary. |
 
 `mensung-core` talks to `mensung-db`'s concrete reader directly rather than
@@ -156,8 +156,10 @@ Confirm your selection and try again with the exact name.
 The `mensung-client` crate currently embeds a small, clearly-marked
 bootstrap dataset (five drugs, three textbook interactions) at build time,
 described in [mensung-builder's seed module](crates/mensung-builder/src/seed.rs).
-The real dataset lands in ROADMAP.md's Phase 11, once the OpenFDA/RxNorm/WHO
-importers exist.
+The real dataset lands in ROADMAP.md's Phase 11, once the DDInter importer
+exists. See [MEDICAL_DATA_POLICY.md](MEDICAL_DATA_POLICY.md) for why DDInter
+and not OpenFDA/RxNorm/WHO as originally planned, and for the data license
+that applies to the compiled database once it does.
 
 ## Building from source
 
@@ -188,8 +190,8 @@ Supported build targets: `x86_64-unknown-linux-musl` (statically linked),
 MenSung never accesses the internet, never sends telemetry, never collects
 patient data, and never stores patient information. The only network-shaped
 surface in the entire project is the builder pipeline used at database
-build time to import public datasets (OpenFDA, RxNorm, WHO); the deployed
-`mensung` binary that reaches the field has no network code at all. See
+build time to import DDInter's public dataset; the deployed `mensung`
+binary that reaches the field has no network code at all. See
 [SECURITY.md](SECURITY.md) for the vulnerability reporting process and scope.
 
 ## Contributing

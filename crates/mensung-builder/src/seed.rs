@@ -1,8 +1,8 @@
 //! A small, hand-authored bootstrap dataset: five drugs and three
 //! well-established textbook interactions. This exists only so
 //! mensung-client has a real database to embed and test against before the
-//! real OpenFDA/RxNorm/WHO importers (ROADMAP.md Phase 5, still open) exist.
-//! Do not treat this as clinically exhaustive or as the shipped dataset;
+//! real DDInter importer (ROADMAP.md Phase 5, still open) exists. Do not
+//! treat this as clinically exhaustive or as the shipped dataset;
 //! MEDICAL_DATA_POLICY.md's real dataset lands in Phase 11.
 
 use mensung_domain::{
@@ -11,7 +11,7 @@ use mensung_domain::{
 };
 
 const BOOTSTRAP_SOURCE: &str =
-    "Standard pharmacology reference (bootstrap seed, not yet sourced from OpenFDA/RxNorm/WHO)";
+    "Standard pharmacology reference (bootstrap seed, not yet sourced from DDInter)";
 
 pub fn seed_dataset() -> Result<(Vec<Drug>, Vec<Interaction>), DomainError> {
     let aspirin = DrugId::new(0);

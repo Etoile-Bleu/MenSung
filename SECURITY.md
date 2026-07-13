@@ -108,8 +108,8 @@ both parties agree.
 
 - **`.men` binary database reader** -- out-of-bounds reads, integer overflows
   in offset/length handling, checksum bypass, zero-copy parsing vulnerabilities
-- **Builder pipeline** -- injection via imported OpenFDA/RxNorm/WHO source
-  data, path traversal in importer file handling
+- **Builder pipeline** -- injection via imported DDInter source data, path
+  traversal in importer file handling
 - **Fuzzy matcher** -- denial-of-service via pathological input, panics on
   malformed or adversarial drug name strings
 - **CLI/TUI** -- command injection via flags or arguments, path traversal in

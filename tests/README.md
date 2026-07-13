@@ -14,8 +14,8 @@ from the per-crate unit tests that live under each `crates/*/src`.
 
 Planned, not yet added:
 
-- Fuzz targets for the builder's data-format parsers, once the real
-  OpenFDA/RxNorm/WHO importers exist (ROADMAP.md Phase 5). A fuzz target for
-  the `.men` binary reader already exists in `fuzz/`.
+- Fuzz targets for the builder's data-format parser, once the real DDInter
+  importer exists (ROADMAP.md Phase 5). A fuzz target for the `.men` binary
+  reader already exists in `fuzz/`.
 - Property-based tests for domain validation logic.
 - CLI integration tests for `mensung-client`.
