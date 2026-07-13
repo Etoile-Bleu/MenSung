@@ -1,0 +1,20 @@
+[package]
+name = "mensung-client"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI and TUI for MenSung. The only crate depending on ratatui/crossterm."
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "mensung"
+path = "src/main.rs"
+
+[dependencies]
+mensung-domain = { version = "0.1.0", path = "../mensung-domain" }
+mensung-core = { version = "0.1.0", path = "../mensung-core" }
+mensung-db = { version = "0.1.0", path = "../mensung-db" }
