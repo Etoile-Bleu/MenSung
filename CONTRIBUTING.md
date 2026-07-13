@@ -38,6 +38,23 @@ cargo audit
 cargo deny check
 ```
 
+### Fuzzing
+
+Code that parses untrusted input (the `.men` reader today, the builder's
+importers later) carries a `cargo-fuzz` target under `fuzz/`. It needs a
+nightly toolchain:
+
+```bash
+rustup install nightly
+cargo install cargo-fuzz
+cargo +nightly fuzz run parse_men
+```
+
+`mensung-db` also has a dependency-free crash test that mutates every bit of
+a valid database and truncates it to every possible length, run as part of
+`cargo test --workspace`. Treat a crash found by either the fuzzer or that
+test with the same priority as a golden case failure.
+
 ## Workspace layout
 
 | Crate | Responsibility |

@@ -289,4 +289,31 @@ mod tests {
             DbError::PayloadChecksumMismatch
         );
     }
+
+    #[test]
+    fn never_panics_on_any_single_bit_flip_of_a_valid_file() {
+        let original = build_test_database();
+        for byte_index in 0..original.len() {
+            for bit in 0..8u8 {
+                let mut mutated = original.clone();
+                mutated[byte_index] ^= 1 << bit;
+                let opened = Database::open(&mutated);
+                if let Ok(db) = opened {
+                    for drug in db.drugs() {
+                        let _ = drug;
+                    }
+                    let pair = DrugPair::new(DrugId::new(0), DrugId::new(1)).unwrap();
+                    let _ = db.find_interaction(pair);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn never_panics_on_a_truncated_file_at_any_length() {
+        let original = build_test_database();
+        for len in 0..original.len() {
+            let _ = Database::open(&original[..len]);
+        }
+    }
 }
