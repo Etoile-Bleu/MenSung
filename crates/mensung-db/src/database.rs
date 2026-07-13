@@ -141,89 +141,31 @@ fn verify_payload_checksum(bytes: &[u8], header: &Header) -> Result<(), DbError>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::header::HEADER_LEN;
+    use crate::test_support::{build_men_file, TestDrug, TestInteraction};
     use mensung_domain::{DrugId, Severity};
 
     fn build_test_database() -> Vec<u8> {
-        let names = [("Aspirin", 0u32), ("Warfarin", 1u32)];
-
-        let mut string_table = Vec::new();
-        let mut drug_table = Vec::new();
-        for (name, id) in &names {
-            let offset = string_table.len() as u32;
-            string_table.extend_from_slice(name.as_bytes());
-            drug_table.extend_from_slice(&id.to_le_bytes());
-            drug_table.extend_from_slice(&offset.to_le_bytes());
-            drug_table.extend_from_slice(&(name.len() as u16).to_le_bytes());
-            drug_table.extend_from_slice(&0u16.to_le_bytes());
-        }
-
-        let description = "Increased bleeding and hemorrhage probability.";
-        let source = "WHO drug interaction reference";
-        let mut interaction_record = Vec::new();
-        interaction_record.extend_from_slice(&0u32.to_le_bytes());
-        interaction_record.extend_from_slice(&0u32.to_le_bytes());
-        interaction_record.extend_from_slice(&1u32.to_le_bytes());
-        interaction_record.push(0);
-        interaction_record.push(0);
-        interaction_record.extend_from_slice(&0u16.to_le_bytes());
-        interaction_record.extend_from_slice(&(description.len() as u32).to_le_bytes());
-        interaction_record.extend_from_slice(description.as_bytes());
-        interaction_record.extend_from_slice(&(source.len() as u32).to_le_bytes());
-        interaction_record.extend_from_slice(source.as_bytes());
-
-        let mut interaction_index = Vec::new();
-        interaction_index.extend_from_slice(&0u32.to_le_bytes());
-        interaction_index.extend_from_slice(&1u32.to_le_bytes());
-        interaction_index.extend_from_slice(&0u32.to_le_bytes());
-        interaction_index.extend_from_slice(&(interaction_record.len() as u32).to_le_bytes());
-
-        let string_table_offset = HEADER_LEN as u64;
-        let string_table_len = string_table.len() as u64;
-        let drug_table_offset = string_table_offset + string_table_len;
-        let drug_table_len = drug_table.len() as u64;
-        let interaction_index_offset = drug_table_offset + drug_table_len;
-        let interaction_index_len = interaction_index.len() as u64;
-        let interaction_records_offset = interaction_index_offset + interaction_index_len;
-        let interaction_records_len = interaction_record.len() as u64;
-
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&string_table);
-        payload.extend_from_slice(&drug_table);
-        payload.extend_from_slice(&interaction_index);
-        payload.extend_from_slice(&interaction_record);
-
-        let payload_sha256: [u8; 32] = Sha256::digest(&payload).into();
-
-        let mut header = vec![0u8; HEADER_LEN];
-        header[0..4].copy_from_slice(b"MEN1");
-        header[4..6].copy_from_slice(&1u16.to_le_bytes());
-        header[6..8].copy_from_slice(&(HEADER_LEN as u16).to_le_bytes());
-        header[12..20].copy_from_slice(&0u64.to_le_bytes());
-        header[20..52].copy_from_slice(&payload_sha256);
-        header[52..56].copy_from_slice(&2u32.to_le_bytes());
-        header[56..60].copy_from_slice(&1u32.to_le_bytes());
-        header[60..68].copy_from_slice(&string_table_offset.to_le_bytes());
-        header[68..76].copy_from_slice(&string_table_len.to_le_bytes());
-        header[76..84].copy_from_slice(&drug_table_offset.to_le_bytes());
-        header[84..92].copy_from_slice(&drug_table_len.to_le_bytes());
-        header[92..100].copy_from_slice(&interaction_index_offset.to_le_bytes());
-        header[100..108].copy_from_slice(&interaction_index_len.to_le_bytes());
-        header[108..116].copy_from_slice(&interaction_records_offset.to_le_bytes());
-        header[116..124].copy_from_slice(&interaction_records_len.to_le_bytes());
-        header[124..128].copy_from_slice(&[0u8; 4]);
-
-        let crc = {
-            let mut hasher = crc32fast::Hasher::new();
-            hasher.update(&header[0..8]);
-            hasher.update(&header[12..]);
-            hasher.finalize()
-        };
-        header[8..12].copy_from_slice(&crc.to_le_bytes());
-
-        let mut full = header;
-        full.extend_from_slice(&payload);
-        full
+        build_men_file(
+            vec![
+                TestDrug {
+                    id: 0,
+                    name: "Aspirin",
+                },
+                TestDrug {
+                    id: 1,
+                    name: "Warfarin",
+                },
+            ],
+            &[TestInteraction {
+                id: 0,
+                drug_a: 0,
+                drug_b: 1,
+                severity: Severity::Contraindicated,
+                description: "Increased bleeding and hemorrhage probability.",
+                evidence: mensung_domain::EvidenceLevel::Established,
+                source: "WHO drug interaction reference",
+            }],
+        )
     }
 
     #[test]
