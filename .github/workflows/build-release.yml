@@ -114,7 +114,7 @@ jobs:
           Offline medication interaction checker for humanitarian medical workers.
 
           This release ships the bootstrap seed dataset (five drugs, three
-          textbook interactions), not the full OpenFDA/RxNorm/WHO dataset yet.
+          textbook interactions), not the full DDInter dataset yet.
           See MEDICAL_DATA_POLICY.md and ROADMAP.md Phase 11.
 
           ### Install

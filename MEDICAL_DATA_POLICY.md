@@ -44,15 +44,50 @@ INN record itself.
 
 ## Data Sources
 
-The builder pipeline (`mensung-builder`) imports and compiles data from:
+The builder pipeline (`mensung-builder`) compiles the shipped `.men`
+database from [DDInter](http://ddinter.scbdd.com/), an actively maintained,
+freely downloadable drug-drug interaction database with clinical severity
+levels (mild/moderate/severe), interaction mechanisms, and source citations.
 
-- OpenFDA
-- RxNorm
-- WHO datasets
+This was not the original plan; OpenFDA, RxNorm, and WHO datasets were the
+initial targets, and none of them work for this purpose in practice.
+OpenFDA's drug interaction field is unstructured prose inside drug labels,
+not structured drug pairs. RxNorm's Drug Interaction API was discontinued by
+the NLM in January 2024. WHO does not publish a structured public
+drug-drug-interaction dataset. DrugBank-derived sources, including via
+Therapeutics Data Commons, require an academic or paid license. DDInter was
+the only actively maintained, genuinely downloadable, severity-graded source
+found after checking each of these directly. See
+[Data License](#data-license) below for what that choice means for
+redistribution.
 
-Every source is public and free to redistribute. No proprietary or
-license-restricted drug databases are used, so the compiled `.men` database
-can be freely shared in the field without licensing concerns.
+## Data License
+
+MenSung's code is dual-licensed under [MIT](LICENSE-MIT) and
+[Apache-2.0](LICENSE-APACHE), fully permissive, including for commercial
+use. The compiled `.men` database that ships in official releases is a
+separate artifact under a different license, because it embeds real
+clinical data:
+
+- Built from DDInter, licensed
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/):
+  attribution required, non-commercial use only, share-alike.
+- `mensung-builder`'s code places no restriction on what data you compile
+  with it. Anyone can build their own `.men` database from a different,
+  more permissively-licensed dataset; that database would carry whatever
+  license its own source data allows. The CC BY-NC-SA restriction applies
+  only to the specific compiled database MenSung's official releases embed,
+  because that one is built from DDInter data.
+
+If you redistribute, deploy, or use the officially released `.men` database,
+or a binary that embeds it, commercially, complying with DDInter's
+non-commercial license is your responsibility. MenSung's maintainers ship
+that data under the terms DDInter grants; how a downstream party
+subsequently uses, redistributes, or violates that license is between that
+party and DDInter, not MenSung. This is the ordinary allocation of
+responsibility for any project that redistributes third-party data under
+its original license, and it is the same "as is, no warranty" principle
+already stated in LICENSE-MIT and LICENSE-APACHE for the code itself.
 
 ## Validation Pipeline
 
