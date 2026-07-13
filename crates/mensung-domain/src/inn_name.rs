@@ -1,12 +1,23 @@
 //! The INN (International Nonproprietary Name) drug name: the only drug
 //! naming form MenSung stores or displays, per MEDICAL_DATA_POLICY.md. Brand
-//! names never reach this type; validation rejects anything that is not a
-//! plausible INN (letters, spaces, and hyphens only, non-empty, bounded
-//! length).
+//! names never reach this type. The allowed character set is ASCII letters,
+//! digits, spaces, and `'()-,./`, chosen by checking DDInter's real 1939
+//! drug names rather than guessing: real pharmaceutical nomenclature needs
+//! digits (`Interferon beta-1a`), parenthesized route/form qualifiers
+//! (`Dexamethasone (topical)`, clinically distinct from the systemic form
+//! and never safe to strip), and commas in reordered generic names
+//! (`Thyroid, porcine`). A stricter, letters-only rule silently rejected
+//! 252 of those 1939 real drugs, which is a zero-false-negative violation
+//! by omission, not a formatting nicety.
 
 use crate::DomainError;
 
 const MAX_LEN: usize = 128;
+const ALLOWED_PUNCTUATION: &str = "'(),-./";
+
+fn is_allowed_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == ' ' || ALLOWED_PUNCTUATION.contains(c)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InnName(String);
@@ -28,10 +39,7 @@ impl InnName {
             });
         }
 
-        if let Some(invalid_char) = trimmed
-            .chars()
-            .find(|c| !(c.is_ascii_alphabetic() || *c == ' ' || *c == '-'))
-        {
+        if let Some(invalid_char) = trimmed.chars().find(|c| !is_allowed_char(*c)) {
             return Err(DomainError::InvalidInnNameCharacter {
                 name: trimmed.to_string(),
                 invalid_char,
@@ -68,6 +76,15 @@ mod tests {
     }
 
     #[test]
+    fn accepts_real_ddinter_names_that_a_letters_only_rule_would_have_rejected() {
+        assert!(InnName::parse("Interferon beta-1a").is_ok());
+        assert!(InnName::parse("Dexamethasone (topical)").is_ok());
+        assert!(InnName::parse("Thyroid, porcine").is_ok());
+        assert!(InnName::parse("Polyethylene glycol (3350 with electrolytes)").is_ok());
+        assert!(InnName::parse("Sodium phosphate, monobasic (p32)").is_ok());
+    }
+
+    #[test]
     fn trims_surrounding_whitespace() {
         assert_eq!(InnName::parse("  Aspirin  ").unwrap().as_str(), "Aspirin");
     }
@@ -81,19 +98,16 @@ mod tests {
     }
 
     #[test]
-    fn rejects_digits() {
-        assert!(matches!(
-            InnName::parse("Drug123").unwrap_err(),
-            DomainError::InvalidInnNameCharacter { .. }
-        ));
-    }
-
-    #[test]
-    fn rejects_punctuation() {
-        assert!(matches!(
-            InnName::parse("Aspirin!").unwrap_err(),
-            DomainError::InvalidInnNameCharacter { .. }
-        ));
+    fn rejects_characters_outside_the_verified_ddinter_set() {
+        for bad in ["Aspirin!", "Aspirin@", "Aspirin#", "Aspirin;", "Aspirin\""] {
+            assert!(
+                matches!(
+                    InnName::parse(bad).unwrap_err(),
+                    DomainError::InvalidInnNameCharacter { .. }
+                ),
+                "expected {bad:?} to be rejected"
+            );
+        }
     }
 
     #[test]
