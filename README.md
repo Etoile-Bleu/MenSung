@@ -33,22 +33,27 @@ Names (INN) only, no brand names. MenSung looks them up against an embedded
 binary database and reports every known interaction, ranked by severity.
 
 ```
-Drug 1: Aspirin
-Drug 2: Warfarin
+$ mensung Aspirin Warfarin
 
-!!! CRITICAL INTERACTION !!!
+!!! CONTRAINDICATED INTERACTION !!!
 
 Aspirin + Warfarin
 
 Severity:
-CONTRAINDICATED / HIGH RISK
+CONTRAINDICATED
 
 Risk:
 Increased bleeding and hemorrhage probability.
 
+Evidence: Established (...)
+
 This software is an offline informational assistant.
 Always use professional clinical judgement.
 ```
+
+This is real, working CLI output today, not a mockup, though it is running
+against the small bootstrap seed dataset described below, not the full
+dataset Phase 11 will ship.
 
 Two rules shape every part of the design:
 
@@ -113,6 +118,38 @@ Download the binary for your platform from the
 [latest release](https://github.com/Etoile-Bleu/MenSung/releases/latest) and
 run it directly. No installer, no dependencies, no internet connection
 required at runtime.
+
+## Usage
+
+```bash
+mensung <drug-1> <drug-2> [<drug-3> ...]
+```
+
+Two or more INN drug names in, every known pairwise interaction out, most
+severe first. Exit codes: `0` no known interaction, `1` an interaction was
+found or a name could not be resolved, `2` bad command-line usage, `70` an
+internal or database error. A typed name with no exact match returns a
+ranked candidate list instead of guessing:
+
+```
+$ mensung Amoxilin Aspirin
+
+Unknown drug:
+Amoxilin
+
+Did you mean:
+
+Amoxicillin (92.0%)
+Aspirin (69.0%)
+
+Confirm your selection and try again with the exact name.
+```
+
+The `mensung-client` crate currently embeds a small, clearly-marked
+bootstrap dataset (five drugs, three textbook interactions) at build time,
+described in [mensung-builder's seed module](crates/mensung-builder/src/seed.rs).
+The real dataset lands in ROADMAP.md's Phase 11, once the OpenFDA/RxNorm/WHO
+importers exist.
 
 ## Building from source
 
