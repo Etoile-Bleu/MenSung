@@ -52,23 +52,23 @@ negative policy and the golden medical test suite both pass in CI.
 - [x] Multi-drug interaction checking (more than two drugs in one session), sorted most severe first
 - [x] Unit tests: `Amoxilin` / `Amoxicilin` / `Amoxycillin` all resolve to `Amoxicillin` as the top ranked candidate, never automatically
 
-## Phase 5: Data Pipeline (`mensung-builder`)
+## Phase 5: Data Pipeline (`mensung-builder`) (writer done, importers open)
 
-- [ ] OpenFDA importer
-- [ ] RxNorm importer
-- [ ] WHO dataset importer
+- [ ] OpenFDA importer -- needs real schema research, not attempted yet
+- [ ] RxNorm importer -- needs real schema research, not attempted yet
+- [ ] WHO dataset importer -- needs real schema research, not attempted yet
 - [ ] Common intermediate schema shared across importers
-- [ ] Validation pipeline: duplicate drugs, invalid or non-INN names, missing severity, corrupted interaction records
-- [ ] `validation-report.json` output (`errors`, `warnings`, `interactions` counts); a build with non-zero errors must not produce a `.men` file
-- [ ] `.men` database compiler
-- [ ] Builder CLI (`mensung-builder build --out medical_database.men`)
+- [x] Validation pipeline: duplicate drugs, dangling drug references, duplicate interaction pairs (invalid INN names and missing severity are already unrepresentable, rejected at construction by `mensung-domain`)
+- [x] `validation-report.json` output (`errors`, `warnings`, `interactions` counts); a build with non-zero errors must not produce a `.men` file
+- [x] `.men` database compiler, with round-trip self-verification through `mensung-db` and `SOURCE_DATE_EPOCH` support for reproducible builds
+- [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, `mensung-client`'s `build.rs` calls the library directly; add once the real importers exist and a human needs to run this by hand
 
-## Phase 6: CLI (`mensung-client`)
+## Phase 6: CLI (`mensung-client`) (done for the bootstrap dataset)
 
-- [ ] Two-drug (and N-drug) interaction lookup command
-- [ ] Plain-text and JSON output modes
-- [ ] Exit codes distinguishing "no interaction," "interaction found," and "input error"
-- [ ] Wired to `mensung-core` and `mensung-db` only; no direct filesystem parsing of the database format outside `mensung-db`
+- [x] Two-drug (and N-drug) interaction lookup command
+- [x] Plain-text output mode; JSON output mode not added, nothing consumes it yet
+- [x] Exit codes distinguishing "no interaction," "interaction found," "input error," and "internal/database error"
+- [x] Wired to `mensung-core` and `mensung-db` only; no direct filesystem parsing of the database format outside `mensung-db`. The database itself is compiled and embedded at build time via `mensung-builder`, not read from an external file at runtime
 
 ## Phase 7: TUI (`mensung-client`)
 
