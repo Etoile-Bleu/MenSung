@@ -163,6 +163,36 @@ parsed into a float, for the same reason a `Claim`'s rationale stays a
 it, never computes with it, and a float round-trip risks showing a
 subtly different number than the source gave.
 
+### WHO ATC Therapeutic Classification
+
+`mensung-builder` also has a working, tested lookup for WHO ATC
+(Anatomical Therapeutic Chemical) classification codes (`atc.rs`,
+`atc_download.rs`), attaching zero or more `AtcCode`s to each drug, e.g.
+`B01AA` ("Vitamin K antagonists") for warfarin. Like the sources above,
+this is tested and verified against real data but not yet wired into a
+build.
+
+WHO's own [ATC/DDD Index](https://www.whocc.no/atc_ddd_index/) has no
+bulk download or programmatic API, checked directly: it is a name-search
+web page only. This project instead reaches ATC codes through
+[NLM's RxClass API](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxClassAPIs.html),
+which cross-references RxNorm concepts to ATC, served from the same
+`rxnav.nlm.nih.gov` infrastructure and Terms of Service as RxNorm itself.
+This makes ATC lookup depend on a drug already having an RxCUI from the
+RxNorm integration above, a real pipeline dependency, not a workaround: a
+drug RxNorm could not resolve has no RxCUI to look up an ATC
+classification for.
+
+A single drug can carry more than one ATC code (aspirin is classified
+both as a platelet aggregation inhibitor and as a salicylate analgesic,
+depending on use), so `Drug::atc_codes()` returns a list, not an
+`Option`, unlike `rxcui()`. RxClass can also return a classification
+entry for a related combination-product RxCUI (`aspirin / codeine`) in
+the same response as the plain ingredient being asked about; verified
+directly, and filtered out by keeping only entries whose RxCUI matches
+the one actually queried, so a combination product's classification
+never silently attaches to the plain ingredient's record.
+
 ## Trust and Conflict Resolution
 
 DDInter is currently the only source compiled into the shipped database.
