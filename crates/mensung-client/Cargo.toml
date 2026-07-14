@@ -15,14 +15,14 @@ name = "mensung"
 path = "src/main.rs"
 
 [dependencies]
-mensung-domain = { version = "0.1.0", path = "../mensung-domain" }
-mensung-core = { version = "0.1.0", path = "../mensung-core" }
-mensung-db = { version = "0.1.0", path = "../mensung-db" }
-mensung-builder = { version = "0.1.0", path = "../mensung-builder" }
+mensung-domain = { path = "../mensung-domain" }
+mensung-core = { path = "../mensung-core" }
+mensung-db = { path = "../mensung-db" }
+mensung-builder = { path = "../mensung-builder" }
 ratatui.workspace = true
 crossterm.workspace = true
 ureq.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-mensung-db = { version = "0.1.0", path = "../mensung-db", features = ["test-support"] }
+mensung-db = { path = "../mensung-db", features = ["test-support"] }

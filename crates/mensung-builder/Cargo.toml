@@ -11,8 +11,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-mensung-domain = { version = "0.1.0", path = "../mensung-domain" }
-mensung-db = { version = "0.1.0", path = "../mensung-db" }
+mensung-domain = { path = "../mensung-domain" }
+mensung-db = { path = "../mensung-db" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
