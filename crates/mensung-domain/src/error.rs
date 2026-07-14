@@ -56,4 +56,12 @@ pub enum DomainError {
 
     #[error("PubChem CID {cid} has a molecular weight '{raw}' that does not parse as a number")]
     InvalidMolecularWeight { cid: u32, raw: String },
+
+    #[error(
+        "'{0}' is not a valid ATC code (must be one uppercase letter, two digits, two uppercase letters)"
+    )]
+    InvalidAtcCode(String),
+
+    #[error("ATC code '{0}' has no class name")]
+    EmptyAtcClassName(String),
 }

@@ -9,6 +9,8 @@
 //! network-touching code in the workspace, used by `mensung-client` to
 //! install the dataset at runtime.
 
+mod atc;
+mod atc_download;
 mod ddinter;
 mod download;
 mod error;
@@ -22,6 +24,8 @@ mod rxnorm_download;
 mod validate;
 mod writer;
 
+pub use atc::{attach_atc_codes, AtcImportError};
+pub use atc_download::{fetch_all as fetch_all_atc_codes, AtcFetchError};
 pub use ddinter::{import_ddinter, ImportError};
 pub use download::{download_and_import_ddinter, is_cached, DownloadError};
 pub use error::BuildError;

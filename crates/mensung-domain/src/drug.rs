@@ -1,12 +1,13 @@
 //! A single drug identified by its INN name, with optional cross-reference
 //! data: an RxNorm `Rxcui` for systems that key on that identifier instead
-//! of a name string, and PubChem `ChemicalProperties` for its molecular
-//! formula, weight, and IUPAC name. Both are optional because they come
-//! from separate lookups (`mensung-builder::rxnorm`,
-//! `mensung-builder::pubchem`) that not every drug has a confirmed match
-//! for; a drug with neither is not an error.
+//! of a name string, PubChem `ChemicalProperties` for its molecular
+//! formula, weight, and IUPAC name, and zero or more WHO `AtcCode`s for
+//! its therapeutic classification. All are optional/empty by default
+//! because they come from separate lookups
+//! (`mensung-builder::{rxnorm,pubchem,atc}`) that not every drug has a
+//! confirmed match for; a drug with none of them is not an error.
 
-use crate::{ChemicalProperties, DrugId, InnName, Rxcui};
+use crate::{AtcCode, ChemicalProperties, DrugId, InnName, Rxcui};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Drug {
@@ -14,6 +15,7 @@ pub struct Drug {
     inn_name: InnName,
     rxcui: Option<Rxcui>,
     chemical_properties: Option<ChemicalProperties>,
+    atc_codes: Vec<AtcCode>,
 }
 
 impl Drug {
@@ -23,6 +25,7 @@ impl Drug {
             inn_name,
             rxcui: None,
             chemical_properties: None,
+            atc_codes: Vec::new(),
         }
     }
 
@@ -35,6 +38,12 @@ impl Drug {
     #[must_use]
     pub fn with_chemical_properties(mut self, properties: ChemicalProperties) -> Self {
         self.chemical_properties = Some(properties);
+        self
+    }
+
+    #[must_use]
+    pub fn with_atc_codes(mut self, atc_codes: Vec<AtcCode>) -> Self {
+        self.atc_codes = atc_codes;
         self
     }
 
@@ -52,6 +61,10 @@ impl Drug {
 
     pub fn chemical_properties(&self) -> Option<&ChemicalProperties> {
         self.chemical_properties.as_ref()
+    }
+
+    pub fn atc_codes(&self) -> &[AtcCode] {
+        &self.atc_codes
     }
 }
 
@@ -97,5 +110,23 @@ mod tests {
                 .map(ChemicalProperties::molecular_formula),
             Some("C19H16O4")
         );
+    }
+
+    #[test]
+    fn has_no_atc_codes_by_default() {
+        let drug = Drug::new(DrugId::new(1), InnName::parse("Warfarin").unwrap());
+        assert!(drug.atc_codes().is_empty());
+    }
+
+    #[test]
+    fn with_atc_codes_attaches_all_of_them() {
+        let codes = vec![
+            AtcCode::new("B01AA", "Vitamin K antagonists").unwrap(),
+            AtcCode::new("N02BA", "Salicylic acid and derivatives").unwrap(),
+        ];
+        let drug =
+            Drug::new(DrugId::new(1), InnName::parse("Aspirin").unwrap()).with_atc_codes(codes);
+        assert_eq!(drug.atc_codes().len(), 2);
+        assert_eq!(drug.atc_codes()[0].code(), "B01AA");
     }
 }

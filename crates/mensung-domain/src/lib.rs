@@ -9,6 +9,7 @@
 //! ever discarded when sources disagree. See MEDICAL_DATA_POLICY.md's
 //! Trust and Conflict Resolution section.
 
+mod atc_code;
 mod claim;
 mod claim_date;
 mod confidence;
@@ -25,6 +26,7 @@ mod rxcui;
 mod severity;
 mod source;
 
+pub use atc_code::AtcCode;
 pub use claim::Claim;
 pub use claim_date::ClaimDate;
 pub use confidence::Confidence;
