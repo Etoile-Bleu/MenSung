@@ -112,6 +112,17 @@ tested, working `mensung-builder` code, verified end to end against real
 label data for real drugs, ready to be wired in once that format work
 lands.
 
+The original integration plan also named DailyMed alongside OpenFDA for
+this same kind of data (contraindications, warnings, pregnancy, dosage,
+official drug labels). DailyMed is not separately integrated: checked
+directly, DailyMed and openFDA's drug label API are both built from the
+same underlying FDA Structured Product Labeling (SPL) submissions,
+openFDA's own stated purpose being to provide an API on top of that data,
+not a second, different dataset. A separate DailyMed importer would parse
+the same source content a second time for no additional coverage; see
+the PubChem/ChEBI reasoning below for the same principle applied to a
+different pair of sources.
+
 ### RxNorm Identity Normalization
 
 `mensung-builder` also has a working, tested lookup for
