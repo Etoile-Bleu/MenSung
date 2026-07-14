@@ -21,6 +21,8 @@ use std::time::Duration;
 
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
+use crate::retry::with_retry;
+
 /// openFDA's unauthenticated limit is 40 requests/minute; 1.6s between
 /// requests gives 37.5/minute, leaving margin rather than running exactly
 /// at the boundary.
@@ -75,17 +77,23 @@ pub fn fetch_one(drug_name: &str) -> Result<Option<String>, OpenFdaFetchError> {
 /// Fetches label records for every name in `drug_names`, in order, pacing
 /// requests to stay under openFDA's unauthenticated rate limit. Names with
 /// no matching label are simply absent from the result, not an error.
-/// A single drug's request failing (a real transport or server error, not
-/// a 404) stops the whole batch rather than silently continuing with a
+/// Each request is retried a few times with backoff on a transient
+/// failure (see `retry.rs`) before giving up; a single drug's request
+/// still failing after retries (a real transport or server error, not a
+/// 404) stops the whole batch rather than silently continuing with a
 /// partial result the caller has no way to know is incomplete.
 pub fn fetch_all(drug_names: &[String]) -> Result<Vec<String>, OpenFdaFetchError> {
     let mut bodies = Vec::new();
+    let total = drug_names.len();
 
     for (index, drug_name) in drug_names.iter().enumerate() {
         if index > 0 {
             thread::sleep(REQUEST_INTERVAL);
         }
-        if let Some(body) = fetch_one(drug_name)? {
+        eprintln!("  [{}/{total}] OpenFDA: {drug_name}", index + 1);
+        if let Some(body) = with_retry(&format!("OpenFDA lookup of '{drug_name}'"), || {
+            fetch_one(drug_name)
+        })? {
             bodies.push(body);
         }
     }

@@ -20,6 +20,7 @@ mod openfda_download;
 mod pubchem;
 mod pubchem_download;
 mod report;
+mod retry;
 mod rxnorm;
 mod rxnorm_download;
 mod validate;
