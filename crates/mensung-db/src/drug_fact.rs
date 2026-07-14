@@ -4,7 +4,7 @@
 //! `interaction_record.rs`), except keyed to one drug instead of a pair,
 //! and carrying the fact's `kind`.
 
-use mensung_domain::{DrugFactId, DrugFactKind, DrugId};
+use mensung_domain::{DrugFactId, DrugFactKind, DrugId, EvidenceLevel, Severity};
 
 use crate::bytes::read_u32;
 use crate::claim_record::{self, ClaimRecord};
@@ -43,6 +43,24 @@ impl<'a> DrugFactRecord<'a> {
     /// `InteractionRecord::primary_claim`.
     pub fn primary_claim(&self) -> ClaimRecord<'a> {
         claim_record::primary_claim(&self.claims)
+    }
+
+    /// Convenience accessors mirroring `InteractionRecord`'s, all backed
+    /// by `primary_claim()`, kept consistent with that type's naming.
+    pub fn severity(&self) -> Severity {
+        self.primary_claim().severity()
+    }
+
+    pub fn evidence(&self) -> EvidenceLevel {
+        self.primary_claim().evidence()
+    }
+
+    pub fn rationale(&self) -> &'a str {
+        self.primary_claim().rationale()
+    }
+
+    pub fn source(&self) -> &'a str {
+        self.primary_claim().source_name()
     }
 }
 
@@ -156,6 +174,13 @@ mod tests {
             EvidenceLevel::Established
         );
         assert_eq!(parsed.claims().len(), 1);
+        assert_eq!(parsed.severity(), Severity::Contraindicated);
+        assert_eq!(parsed.evidence(), EvidenceLevel::Established);
+        assert_eq!(
+            parsed.rationale(),
+            "Warfarin sodium can cause major or fatal bleeding."
+        );
+        assert_eq!(parsed.source(), "OpenFDA Drug Labeling");
     }
 
     #[test]
