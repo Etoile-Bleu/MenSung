@@ -50,4 +50,10 @@ pub enum DomainError {
 
     #[error("'{0}' is not a valid RxCUI (must be a non-empty string of digits)")]
     InvalidRxcui(String),
+
+    #[error("PubChem CID {0} has an empty molecular formula")]
+    EmptyMolecularFormula(u32),
+
+    #[error("PubChem CID {cid} has a molecular weight '{raw}' that does not parse as a number")]
+    InvalidMolecularWeight { cid: u32, raw: String },
 }
