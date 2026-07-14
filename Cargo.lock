@@ -788,7 +788,7 @@ dependencies = [
 
 [[package]]
 name = "mensung-builder"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crc32fast",
  "csv",
@@ -804,7 +804,7 @@ dependencies = [
 
 [[package]]
 name = "mensung-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crossterm",
  "mensung-builder",
@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "mensung-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "mensung-db",
  "mensung-domain",
@@ -828,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "mensung-db"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crc32fast",
  "mensung-domain",
@@ -838,7 +838,7 @@ dependencies = [
 
 [[package]]
 name = "mensung-domain"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "thiserror 2.0.18",
 ]
