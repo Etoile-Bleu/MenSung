@@ -27,6 +27,7 @@ use std::path::{Path, PathBuf};
 use mensung_domain::{Drug, Interaction};
 
 use crate::ddinter::{import_ddinter, ImportError};
+use crate::retry::with_retry;
 
 const ATC_CODES: [&str; 8] = ["A", "B", "D", "H", "L", "P", "R", "V"];
 const MIRROR_BASE: &str =
@@ -80,8 +81,10 @@ fn fetch_all(dest_dir: &Path) -> Result<(), DownloadError> {
     std::fs::create_dir_all(dest_dir)?;
 
     let mut staged: Vec<(PathBuf, PathBuf)> = Vec::with_capacity(ATC_CODES.len());
-    for code in ATC_CODES {
+    let total = ATC_CODES.len();
+    for (index, code) in ATC_CODES.iter().enumerate() {
         let name = csv_filename(code);
+        eprintln!("  [{}/{total}] DDInter: {name}", index + 1);
         let body = fetch_one(&name)?;
 
         let final_path = dest_dir.join(&name);
@@ -97,13 +100,20 @@ fn fetch_all(dest_dir: &Path) -> Result<(), DownloadError> {
     Ok(())
 }
 
+/// Tries the primary source, then the mirror, retrying each a few times
+/// with backoff on a transient failure (see `retry.rs`) before falling
+/// through to the next source.
 fn fetch_one(name: &str) -> Result<String, DownloadError> {
     let primary_url = format!("https://ddinter.scbdd.com/static/media/download/{name}");
-    match fetch_url(&primary_url) {
+    match with_retry(&format!("DDInter primary fetch of '{name}'"), || {
+        fetch_url(&primary_url)
+    }) {
         Ok(body) => Ok(body),
         Err(primary_err) => {
             let mirror_url = format!("{MIRROR_BASE}/{name}");
-            match fetch_url(&mirror_url) {
+            match with_retry(&format!("DDInter mirror fetch of '{name}'"), || {
+                fetch_url(&mirror_url)
+            }) {
                 Ok(body) => Ok(body),
                 Err(mirror_err) => Err(DownloadError::BothSourcesFailed {
                     file: name.to_string(),

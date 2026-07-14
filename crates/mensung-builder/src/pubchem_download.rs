@@ -17,6 +17,8 @@ use std::time::Duration;
 use mensung_domain::DrugId;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
+use crate::retry::with_retry;
+
 const REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Debug, thiserror::Error)]
@@ -65,18 +67,23 @@ pub fn fetch_one(drug_name: &str) -> Result<Option<String>, PubchemFetchError> {
 
 /// Fetches property responses for every `(DrugId, name)` pair, in order,
 /// pacing requests to stay well under PubChem's rate limit. Names with no
-/// match are simply absent from the result, not an error. A single
-/// request failing with a real transport or server error (not a 404)
-/// stops the whole batch, the same fail-fast choice every other fetcher
-/// in this crate makes.
+/// match are simply absent from the result, not an error. Each request is
+/// retried a few times with backoff on a transient failure (see
+/// `retry.rs`) before giving up; a single request still failing with a
+/// real transport or server error (not a 404) after retries stops the
+/// whole batch, the same fail-fast choice every other fetcher in this
+/// crate makes.
 pub fn fetch_all(drugs: &[(DrugId, String)]) -> Result<Vec<(DrugId, String)>, PubchemFetchError> {
     let mut results = Vec::new();
+    let total = drugs.len();
 
     for (index, (drug_id, name)) in drugs.iter().enumerate() {
         if index > 0 {
             thread::sleep(REQUEST_INTERVAL);
         }
-        if let Some(body) = fetch_one(name)? {
+        eprintln!("  [{}/{total}] PubChem: {name}", index + 1);
+        if let Some(body) = with_retry(&format!("PubChem lookup of '{name}'"), || fetch_one(name))?
+        {
             results.push((*drug_id, body));
         }
     }

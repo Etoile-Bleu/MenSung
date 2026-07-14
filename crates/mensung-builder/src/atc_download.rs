@@ -18,6 +18,8 @@ use std::time::Duration;
 use mensung_domain::DrugId;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
+use crate::retry::with_retry;
+
 const REQUEST_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Debug, thiserror::Error)]
@@ -69,18 +71,24 @@ pub fn fetch_one(rxcui: &str) -> Result<String, AtcFetchError> {
 /// Returns each input's `DrugId` and `rxcui` alongside its response body,
 /// since `atc.rs::attach_atc_codes` needs the queried RxCUI to filter out
 /// related combination-product entries RxClass can include in the same
-/// response. A single request failing stops the whole batch, the same
-/// fail-fast choice every other fetcher in this crate makes.
+/// response. Each request is retried a few times with backoff on a
+/// transient failure (see `retry.rs`) before giving up; a single request
+/// still failing after retries stops the whole batch, the same fail-fast
+/// choice every other fetcher in this crate makes.
 pub fn fetch_all(
     drugs: &[(DrugId, String)],
 ) -> Result<Vec<(DrugId, String, String)>, AtcFetchError> {
     let mut results = Vec::with_capacity(drugs.len());
+    let total = drugs.len();
 
     for (index, (drug_id, rxcui)) in drugs.iter().enumerate() {
         if index > 0 {
             thread::sleep(REQUEST_INTERVAL);
         }
-        let body = fetch_one(rxcui)?;
+        eprintln!("  [{}/{total}] WHO ATC: rxcui {rxcui}", index + 1);
+        let body = with_retry(&format!("ATC lookup of rxcui '{rxcui}'"), || {
+            fetch_one(rxcui)
+        })?;
         results.push((*drug_id, rxcui.clone(), body));
     }
 

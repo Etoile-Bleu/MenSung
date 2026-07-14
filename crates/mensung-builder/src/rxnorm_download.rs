@@ -15,6 +15,8 @@ use std::time::Duration;
 use mensung_domain::DrugId;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
+use crate::retry::with_retry;
+
 const REQUEST_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Debug, thiserror::Error)]
@@ -62,19 +64,22 @@ pub fn fetch_one(drug_name: &str) -> Result<String, RxNormFetchError> {
 }
 
 /// Fetches RxCUI lookup responses for every `(DrugId, name)` pair, in
-/// order, pacing requests to stay well under RxNorm's rate limit. A
-/// single request failing stops the whole batch, the same fail-fast
-/// choice `openfda_download.rs::fetch_all` makes, rather than silently
-/// returning a partial result the caller has no way to know is
-/// incomplete.
+/// order, pacing requests to stay well under RxNorm's rate limit. Each
+/// request is retried a few times with backoff on a transient failure
+/// (see `retry.rs`) before giving up; a single request still failing
+/// after retries stops the whole batch, the same fail-fast choice
+/// `openfda_download.rs::fetch_all` makes, rather than silently returning
+/// a partial result the caller has no way to know is incomplete.
 pub fn fetch_all(drugs: &[(DrugId, String)]) -> Result<Vec<(DrugId, String)>, RxNormFetchError> {
     let mut results = Vec::with_capacity(drugs.len());
+    let total = drugs.len();
 
     for (index, (drug_id, name)) in drugs.iter().enumerate() {
         if index > 0 {
             thread::sleep(REQUEST_INTERVAL);
         }
-        let body = fetch_one(name)?;
+        eprintln!("  [{}/{total}] RxNorm: {name}", index + 1);
+        let body = with_retry(&format!("RxNorm lookup of '{name}'"), || fetch_one(name))?;
         results.push((*drug_id, body));
     }
 
