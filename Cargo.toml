@@ -18,6 +18,12 @@ homepage = "https://github.com/Etoile-Bleu/MenSung"
 description = "Offline medication interaction checker for humanitarian medical workers"
 keywords = ["medical", "offline", "healthcare", "drug-interactions", "humanitarian"]
 categories = ["command-line-utilities", "science"]
+# These five crates are workspace-internal only, never published to
+# crates.io independently of each other or of a MenSung release; this
+# also lets cargo-deny's allow-wildcard-paths treat their path
+# dependencies on each other as safe rather than flagging them as
+# wildcard dependencies (see deny.toml).
+publish = false
 
 [workspace.dependencies]
 thiserror = "2.0"
