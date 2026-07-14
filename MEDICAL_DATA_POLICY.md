@@ -135,6 +135,34 @@ without an RxCUI, not guessed at. Requests are paced at 10 per second,
 half of RxNorm's own stated limit of 20 requests per second per IP
 address (checked directly against RxNorm's Terms of Service).
 
+### PubChem Chemical Reference Data (and why not ChEBI too)
+
+`mensung-builder` also has a working, tested lookup for
+[PubChem's PUG REST API](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest)
+(`pubchem.rs`, `pubchem_download.rs`), attaching each drug's PubChem CID,
+molecular formula, molecular weight, and IUPAC name as
+`ChemicalProperties`, using the same not-yet-wired-into-a-build pattern
+as OpenFDA and RxNorm above. This is reference chemistry information, not
+a clinical assertion: it carries no severity or evidence level and does
+not go through the `Claim`/`Source` conflict resolution model, since
+there is nothing to resolve a disagreement about.
+
+The original integration plan also named ChEBI (a second chemical
+ontology and identifier system, chebi.ebi.ac.uk) alongside PubChem.
+ChEBI is not integrated, and is not currently planned: it serves largely
+the same purpose PubChem already does here (a chemical identifier plus
+basic structural data), and MenSung has no feature, planned or existing,
+that would use a second, overlapping chemical ontology once it already
+has one. Adding ChEBI on top of PubChem would be duplicated integration
+work for data this project does not use, not a clinically meaningful gap
+the way a second interaction or label source would be; per
+GOOD_PRACTICE.md, this is not built until an actual need for it exists.
+Molecular weight is kept as PubChem's own decimal string rather than
+parsed into a float, for the same reason a `Claim`'s rationale stays a
+`String` rather than being reformatted: this project only ever displays
+it, never computes with it, and a float round-trip risks showing a
+subtly different number than the source gave.
+
 ## Trust and Conflict Resolution
 
 DDInter is currently the only source compiled into the shipped database.
