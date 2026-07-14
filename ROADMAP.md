@@ -68,17 +68,20 @@ MEDICAL_DATA_POLICY.md's Data Sources section for the full research and why
 - [x] `download` module (`mensung_builder::download_and_import_ddinter`) -- fetches DDInter's eight CSV files over HTTPS with TLS validation never disabled, used by `mensung-client` at runtime (see Phase 6); the only network-touching code in the workspace. Falls back to a mirror on this project's own GitHub Releases (`ddinter-mirror-2025-08-30`) when DDInter's site cannot be reached over a validated connection, which has been true every time this was checked while building this phase; see MEDICAL_DATA_POLICY.md
 - [ ] Builder CLI (`mensung-builder build --out medical_database.men`) -- not needed yet, nothing currently needs to run this outside of `mensung-client`'s own runtime install flow; add once a human needs to run this by hand
 
-**Known tradeoff, accepted:** compiling the full real DDInter dataset
-produces a `.men` file around 28MB, well past the `<10MB` binary budget in
-Phase 9. Root cause: DDInter's bulk CSV export has no per-pair description
-or citation, only a severity level, so the importer synthesizes a
-description from the severity tier; that synthesized text (and the source
-string) repeats verbatim across most of the 160235 records, and the `.men`
-format inlines description/source per record instead of deduplicating
-repeated text through a shared string table the way the Drug Table already
-does for names. The real fix is a format v2 with a shared string table for
-interaction text, not attempted yet; revisit if the `<10MB` budget turns
-out to matter in practice once this ships.
+**Known tradeoff from format v1, fixed in format v2 (see Phase 8b):**
+compiling the full real DDInter dataset under format v1 produced a `.men`
+file around 28MB, well past the `<10MB` binary budget in Phase 9. Root
+cause: DDInter's bulk CSV export has no per-pair description or citation,
+only a severity level, so the importer synthesizes a description from the
+severity tier; that synthesized text (and the source string) repeated
+verbatim across most of the 160235 records, and format v1 inlined
+description/source per record instead of deduplicating repeated text
+through a shared string table the way the Drug Table already did for
+names. Format v2's shared string table fixes this: the same real, full
+DDInter dataset (1939 drugs, 160235 interactions) now compiles to 9.3MB,
+verified directly (`tests/ddinter_v2_size.rs`, `#[ignore]`d like the other
+live-network tests since it downloads the real dataset), under the
+`<10MB` budget.
 
 ## Phase 6: CLI (`mensung-client`) (done)
 
@@ -104,7 +107,7 @@ Verified interactively in a real terminal (tmux), not just unit-tested: typed in
 - [ ] `cargo-fuzz` targets: parser (blocked on the real importers existing), fuzzy search engine (not started); binary reader done in Phase 3
 - [ ] Property-based tests for domain validation logic
 
-## Phase 8b: Multi-Source Clinical Fact Model (domain layer and OpenFDA importer done, format v2 not started)
+## Phase 8b: Multi-Source Clinical Fact Model (domain layer, all four extra sources, and format v2 done)
 
 DDInter alone answers "does an interaction exist and how severe is it."
 Adding DailyMed, OpenFDA, or another regulatory source means those sources
@@ -124,10 +127,12 @@ for the policy this implements.
 - [x] RxNorm identity normalization integrated (`mensung_domain::Rxcui`, `Drug::with_rxcui`, `mensung-builder::rxnorm`, `rxnorm_download`): attaches an RxCUI to each drug via RxNorm's own normalized search, which already handles salt forms and word order server side, checked directly against real responses including one of DDInter's more unusual names (`Dexamethasone (topical)`). Proven end to end against real, live data (`tests/rxnorm_live.rs`, same `#[ignore]` pattern as the OpenFDA live tests)
 - [x] PubChem chemical reference data integrated (`mensung_domain::{PubchemCid, ChemicalProperties}`, `Drug::with_chemical_properties`, `mensung-builder::pubchem`, `pubchem_download`): CID, molecular formula, molecular weight, and IUPAC name, verified against real live responses. Not a `Claim`/`Source` fact, since chemical reference data has no severity to disagree about. Proven end to end against real, live data (`tests/pubchem_live.rs`, same `#[ignore]` pattern as the other live tests). ChEBI, named alongside PubChem in the original plan, is deliberately not integrated: it would duplicate what PubChem already provides here for no feature that uses it; see MEDICAL_DATA_POLICY.md's PubChem subsection for the full reasoning
 - [x] WHO ATC therapeutic classification integrated (`mensung_domain::AtcCode`, `Drug::with_atc_codes`, `mensung-builder::atc`, `atc_download`): WHO's own ATC/DDD Index has no bulk API (checked directly, it is a name-search web page only), so this reaches ATC codes through NLM's RxClass API instead, cross-referencing the RxCUI the RxNorm integration already resolved -- a real pipeline dependency (ATC lookup needs a drug's `Rxcui` first), not a workaround. Filters out RxClass's related combination-product entries (verified directly against aspirin, which also returns an "aspirin / codeine" entry) by keeping only entries for the RxCUI actually queried. Proven end to end against real, live data chained through a real RxNorm lookup (`tests/atc_live.rs`, same `#[ignore]` pattern as the other live tests)
+- [x] `.men` format v2 (see docs/DATABASE_FORMAT.md): a shared String Table used by every text field, including claim rationale and source names, not only drug names; Interaction Records and the new Drug Fact Records both carry one or more fixed-size `Claim` entries instead of format v1's single inlined severity/description/source; the Drug Table gained fixed fields for an optional RxCUI, optional PubChem chemical properties, and a variable-count ATC Code Table reference. `mensung-db`'s reader and `mensung-builder`'s writer were both rewritten together and round-trip-tested against each other, the same discipline `build_database`'s self-reopening check already enforced for v1. `InteractionRecord`'s convenience accessors (`severity()`, `description()`, `evidence()`, `source()`) are kept under their v1 names, backed by the same most-authoritative-tier/most-severe-on-a-tie resolution `InteractionFact::primary_claim()` implements, so `mensung-core` and `mensung-client` needed no changes beyond the `build_database` call site
+- [x] `mensung-builder`'s DDInter importer wrapped as `Claim`s (`mensung_builder::wrap_as_claims`): a small adapter, not a change to `ddinter.rs` itself, so DDInter's own tested import logic is untouched. Each DDInter interaction becomes a single-claim `InteractionFact` sourced as DDInter, `Confidence::Medium` (a curated third-party aggregation, not primary regulatory review, the same reasoning already applied to OpenFDA's confidence level)
+- [x] The documented v1 size tradeoff (Phase 5) is fixed by v2's deduplication: the real, full DDInter dataset (1939 drugs, 160235 interactions) now compiles to 9.3MB, down from v1's ~28MB, verified directly against the live dataset (`tests/ddinter_v2_size.rs`)
 - [ ] OpenFDA does not yet exercise actual conflict *resolution*: it is currently the only source contributing `DrugFact`s (DDInter only contributes `InteractionFact`s), so there is no second source yet disagreeing with it on the same fact. Proving `primary_claim()`'s tie-break logic against real disagreeing data needs a second source overlapping OpenFDA on the same drug fact, or a second source overlapping DDInter on the same interaction pair
-- [ ] None of OpenFDA, RxNorm, PubChem, or ATC is yet wired into a build: `DrugFact`s, the `Rxcui`, `ChemicalProperties`, and `AtcCode`s all have nowhere to be persisted in the `.men` file yet, waiting on the format v2 below, so these importers are tested, working code, not yet reachable from `mensung-client`
-- [ ] `mensung-builder`'s DDInter importer migrated to produce `Claim`/`InteractionFact` instead of `Interaction` directly -- deferred until there is a build that actually combines it with a second interaction-level source, so this migration happens once, together with real multi-source data, instead of twice
-- [ ] `.men` format v2 with a shared string table, needed to persist and display full multi-source provenance (`InteractionFact` and `DrugFact` data) and the `Rxcui`/`ChemicalProperties`/`AtcCode` cross-references, instead of only the resolved `Interaction`/name-only `Drug` view
+- [ ] OpenFDA, RxNorm, PubChem, and ATC are not yet wired into `mensung-client`'s runtime install flow, even though format v2 can now persist everything they produce: `data.rs`'s `install()` still only fetches and compiles DDInter. Wiring in the rest means running all four rate-limited fetchers for every drug during install (RxNorm and ATC together already take minutes at DDInter's ~1900-drug scale, OpenFDA and PubChem considerably longer at their documented request pacing), which needs real progress feedback in the CLI/TUI, not silence, plus a decision on whether install stays a single combined step or becomes incremental/resumable. Not attempted yet: this is real UX design work, not a mechanical wiring change, and deserves its own pass rather than being rushed at the end of the format v2 work
+- [ ] Nothing in the CLI or TUI displays `DrugFact`s, RxCUI, chemical properties, or ATC codes yet, even once installed: `cli.rs` and `tui/ui.rs` only ever call the resolved-view accessors format v2 preserved from v1. Showing more than one claim, or a drug's cross-reference data, needs actual display design (how much of five disagreeing claims' rationale fits a terminal panel without overwhelming a stressed field user), not just exposing the data
 - [ ] DrugBank: deprioritized/likely skipped, per the licensing research in Data Sources above (only publicly available and license-compatible data was ever in scope, and no such access route was found that improves on what DDInter/OpenFDA/RxNorm/PubChem/ATC already cover)
 
 ## Phase 9: Performance Hardening
