@@ -215,11 +215,16 @@ DDInter is currently the only source compiled into the databases
 `mensung-client` actually installs. OpenFDA's, RxNorm's, PubChem's, and
 WHO ATC's importers all exist, are verified against real data, and the
 `.men` format (version 2, see docs/DATABASE_FORMAT.md) can persist
-everything they produce, but none of the four is yet called from
-`mensung-client`'s runtime install flow; see the Data Sources subsections
-above and ROADMAP.md's Phase 8b for why that wiring is a separate,
-not-yet-done piece of work. The domain layer (`mensung-domain`) already
-models what happens once a second source is compiled in and disagrees
+everything they produce, but none of the four is called from
+`mensung-client`'s runtime install flow, deliberately: see the Data
+Sources subsections above and ROADMAP.md's Phase 8b for why running all
+four live, once per end-user install, is roughly an hour against exactly
+the low-connectivity deployments this project targets. The builder CLI
+(`mensung-builder build --out <path>`, see ROADMAP.md's Phase 5) is
+where these four sources are meant to run instead, once, offline, with
+the result published as a release asset the way DDInter's own mirror
+already is. The domain layer (`mensung-domain`) already models what
+happens once a second source is compiled in and disagrees
 with the first; this section documents that model now so the policy
 exists before that happens, not after.
 
