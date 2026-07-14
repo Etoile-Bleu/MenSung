@@ -794,6 +794,7 @@ dependencies = [
  "csv",
  "mensung-db",
  "mensung-domain",
+ "percent-encoding",
  "serde",
  "serde_json",
  "sha2 0.11.0",

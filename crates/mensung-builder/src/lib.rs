@@ -12,6 +12,8 @@
 mod ddinter;
 mod download;
 mod error;
+mod openfda;
+mod openfda_download;
 mod report;
 mod validate;
 mod writer;
@@ -19,6 +21,8 @@ mod writer;
 pub use ddinter::{import_ddinter, ImportError};
 pub use download::{download_and_import_ddinter, is_cached, DownloadError};
 pub use error::BuildError;
+pub use openfda::{import_openfda_labels, openfda_source, OpenFdaImportError, OPENFDA_SOURCE_ID};
+pub use openfda_download::{fetch_all as fetch_all_openfda_labels, OpenFdaFetchError};
 pub use report::ValidationReport;
 pub use validate::{validate, ValidationIssue};
 

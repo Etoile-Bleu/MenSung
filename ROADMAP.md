@@ -104,7 +104,7 @@ Verified interactively in a real terminal (tmux), not just unit-tested: typed in
 - [ ] `cargo-fuzz` targets: parser (blocked on the real importers existing), fuzzy search engine (not started); binary reader done in Phase 3
 - [ ] Property-based tests for domain validation logic
 
-## Phase 8b: Multi-Source Clinical Fact Model (domain layer done, second source not started)
+## Phase 8b: Multi-Source Clinical Fact Model (domain layer and OpenFDA importer done, format v2 not started)
 
 DDInter alone answers "does an interaction exist and how severe is it."
 Adding DailyMed, OpenFDA, or another regulatory source means those sources
@@ -120,9 +120,11 @@ for the policy this implements.
 - [x] `InteractionFact` / `DrugFact`: one or more `Claim`s per fact, `primary_claim()` picks the most authoritative tier present and breaks same-tier ties toward the more severe reading, `resolve()` collapses to the existing single-severity `Interaction` shape without deleting the other claims
 - [x] `Severity::clinical_meaning()`: the four-tier clinical scale (Absolute contraindication / Strongly discouraged / Use with caution / Informational) alongside the existing short display label
 - [x] Full unit test coverage: tier ranking, same-tier severity tie-breaking, zero-claims rejection, calendar date edge cases (leap years, century years, invalid days)
-- [ ] A second real source (OpenFDA Drug Labels is next, pending verification of its real JSON schema) actually producing `Claim`s, to prove the conflict-resolution path against real disagreeing data rather than only synthetic test fixtures
-- [ ] `mensung-builder`'s DDInter importer migrated to produce `Claim`/`InteractionFact` instead of `Interaction` directly -- deferred until there is a second source to combine it with, so this migration happens once, together with real multi-source data, instead of twice
-- [ ] `.men` format v2 with a shared string table, needed to persist and display full multi-source provenance instead of only the resolved view
+- [x] OpenFDA Drug Labels integrated (`mensung-builder::openfda`, `openfda_download`): field names, `openfda.generic_name` shape, and the `effective_time` date format verified against a real live API response and FDA's own published schema, not assumed. Produces `DrugFact`s (contraindication, boxed warning, warning, pregnancy, breastfeeding, dosage, indication) for drugs matched to an existing INN name by exact word-prefix matching, never a fuzzy or substring match. Proven end to end against real, live data for real drugs (`tests/openfda_live.rs`, `#[ignore]`d like the live-network unit tests in `openfda_download.rs`, since a test suite that depends on an external service being up is not something `cargo test --workspace` should run in CI)
+- [ ] OpenFDA does not yet exercise actual conflict *resolution*: it is currently the only source contributing `DrugFact`s (DDInter only contributes `InteractionFact`s), so there is no second source yet disagreeing with it on the same fact. Proving `primary_claim()`'s tie-break logic against real disagreeing data needs a second source overlapping OpenFDA on the same drug fact, or a second source overlapping DDInter on the same interaction pair
+- [ ] Not yet wired into a build: `DrugFact`s have nowhere to be persisted until the `.men` format v2 below exists, so this importer is tested, working code, not yet reachable from `mensung-client`
+- [ ] `mensung-builder`'s DDInter importer migrated to produce `Claim`/`InteractionFact` instead of `Interaction` directly -- deferred until there is a build that actually combines it with a second interaction-level source, so this migration happens once, together with real multi-source data, instead of twice
+- [ ] `.men` format v2 with a shared string table, needed to persist and display full multi-source provenance (both `InteractionFact` and the now-real `DrugFact` data) instead of only the resolved view
 
 ## Phase 9: Performance Hardening
 

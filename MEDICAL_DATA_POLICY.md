@@ -73,13 +73,55 @@ not this project's code license; see Data License below. If DDInter's
 certificate is renewed, the live site is tried first and starts succeeding
 again automatically; the mirror is a fallback, not a replacement.
 
+### OpenFDA Drug Labeling
+
+`mensung-builder` also has a working, tested importer for
+[OpenFDA's drug label API](https://open.fda.gov/apis/drug/label/)
+(`openfda.rs`, `openfda_download.rs`), enriching drugs MenSung already
+knows about with contraindications, boxed warnings, warnings, pregnancy
+and breastfeeding guidance, dosage, and approved indications, each
+becoming a `DrugFact` (see Trust and Conflict Resolution below). Verified
+against the real live API while building it, not assumed: field names,
+the `openfda.generic_name` shape, and the `effective_time` date format
+were all checked against a real response and against
+[FDA's own published schema](https://github.com/FDA/openfda/blob/master/schemas/druglabel_schema.json).
+
+OpenFDA's full drug/label bulk export is 260,530 records across 14 zipped
+JSON files, about 1.8GB compressed (checked directly via
+`api.fda.gov/download.json`). Almost none of that is relevant to a tool
+that only cares about drugs already in its INN drug list, so this fetches
+one drug at a time through the live search API instead, paced under
+openFDA's unauthenticated rate limit (40 requests/minute) rather than
+requiring an API key.
+
+Because OpenFDA's `generic_name` field is a specific product's label name
+and usually includes a salt or ester form the INN name does not
+("WARFARIN SODIUM" vs "Warfarin"), the importer only accepts a match when
+every word of the INN name is an exact, case-insensitive prefix of the
+label's generic name, never a substring or fuzzy match; a false match
+here would silently attach one drug's warnings to a different drug. Any
+label field OpenFDA does not represent as a single dedicated field on the
+newer label format (breastfeeding guidance folded into a subsection with
+no field of its own, on some labels) is skipped rather than guessed at.
+
+This importer is not yet wired into `mensung-client`'s runtime install
+flow or the compiled `.men` file: `DrugFact`s need a `.men` format v2 with
+a shared string table to be persisted and displayed at all (see Trust and
+Conflict Resolution below), which does not exist yet. Today it exists as
+tested, working `mensung-builder` code, verified end to end against real
+label data for real drugs, ready to be wired in once that format work
+lands.
+
 ## Trust and Conflict Resolution
 
-DDInter is currently the only source compiled into the shipped database, but
-the domain layer (`mensung-domain`) already models what happens once a
-second source (OpenFDA, DailyMed, or another) is added and disagrees with
-it. This section documents that model now so the policy exists before the
-second source does, not after.
+DDInter is currently the only source compiled into the shipped database.
+OpenFDA's importer exists and is verified against real data (see Data
+Sources above) but is not yet wired into a build, since `DrugFact`s have
+nowhere to be persisted until the `.men` format v2 described below lands.
+The domain layer (`mensung-domain`) already models what happens once a
+second source is compiled in and disagrees with the first; this section
+documents that model now so the policy exists before that happens, not
+after.
 
 Every clinical fact, an interaction between two drugs or a fact about a
 single drug (contraindication, boxed warning, pregnancy/breastfeeding
