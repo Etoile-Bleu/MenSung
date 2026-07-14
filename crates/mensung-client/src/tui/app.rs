@@ -1,15 +1,27 @@
 //! Application state and the state machine that drives the interactive
 //! interface: two drug input fields, a confirmation step for any non-exact
-//! match, and a results screen. There is no path from typed text to a
-//! result that skips the confirmation step, per the no-silent-correction
-//! rule in MEDICAL_DATA_POLICY.md.
+//! match, a results screen, and a single-drug info screen (F1 on the
+//! focused field). There is no path from typed text to a result that
+//! skips the confirmation step, per the no-silent-correction rule in
+//! MEDICAL_DATA_POLICY.md; that applies identically whether the lookup is
+//! for an interaction check or for `LookupPurpose::ShowInfo`.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use mensung_core::{check_interactions, lookup_drug, Candidate, LookupOutcome};
-use mensung_db::{Database, DrugRecord, InteractionRecord};
+use mensung_db::{Database, DrugFactRecord, DrugRecord, InteractionRecord};
 use mensung_domain::DrugId;
 
 const FIELD_COUNT: usize = 2;
+
+/// What a name typed into a field is being resolved for, so
+/// `Screen::Candidates` knows what to do once the user confirms a match:
+/// continue the two-drug interaction flow, or jump straight to that one
+/// drug's info screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LookupPurpose {
+    CheckInteraction,
+    ShowInfo,
+}
 
 #[derive(Debug)]
 pub(crate) enum Screen<'a> {
@@ -18,12 +30,17 @@ pub(crate) enum Screen<'a> {
         field: usize,
         candidates: Vec<Candidate<'a>>,
         selected: usize,
+        purpose: LookupPurpose,
     },
     NoMatch {
         field: usize,
     },
     Results {
         interactions: Vec<InteractionRecord<'a>>,
+    },
+    DrugInfo {
+        drug: DrugRecord<'a>,
+        facts: Vec<DrugFactRecord<'a>>,
     },
     Error(String),
 }
@@ -74,9 +91,10 @@ impl<'a> App<'a> {
         match self.screen {
             Screen::Input => self.handle_input_key(key),
             Screen::Candidates { .. } => self.handle_candidates_key(key),
-            Screen::NoMatch { .. } | Screen::Results { .. } | Screen::Error(_) => {
-                self.handle_dismiss_key(key)
-            }
+            Screen::NoMatch { .. }
+            | Screen::Results { .. }
+            | Screen::DrugInfo { .. }
+            | Screen::Error(_) => self.handle_dismiss_key(key),
         }
     }
 
@@ -92,6 +110,7 @@ impl<'a> App<'a> {
             }
             KeyCode::Char(c) => self.inputs[self.focused].push(c),
             KeyCode::Enter => self.submit(),
+            KeyCode::F(1) => self.show_drug_info(),
             _ => {}
         }
     }
@@ -101,6 +120,7 @@ impl<'a> App<'a> {
             field,
             candidates,
             selected,
+            purpose,
         } = &mut self.screen
         else {
             return;
@@ -112,11 +132,17 @@ impl<'a> App<'a> {
             KeyCode::Up => *selected = selected.saturating_sub(1),
             KeyCode::Enter => {
                 let field = *field;
+                let purpose = *purpose;
                 let chosen = candidates[*selected].drug();
                 self.inputs[field] = chosen.name().to_string();
-                self.resolved[field] = Some(chosen);
-                self.screen = Screen::Input;
-                self.resolve_next();
+                match purpose {
+                    LookupPurpose::CheckInteraction => {
+                        self.resolved[field] = Some(chosen);
+                        self.screen = Screen::Input;
+                        self.resolve_next();
+                    }
+                    LookupPurpose::ShowInfo => self.display_drug_info(chosen),
+                }
             }
             _ => {}
         }
@@ -139,6 +165,38 @@ impl<'a> App<'a> {
         self.resolve_next();
     }
 
+    /// Looks up the currently focused field's typed name for its own
+    /// info screen, independent of the other field: unlike `submit()`,
+    /// this does not require both fields to be filled.
+    fn show_drug_info(&mut self) {
+        let query = self.inputs[self.focused].trim();
+        if query.is_empty() {
+            return;
+        }
+
+        let field = self.focused;
+        match lookup_drug(self.db, query) {
+            Ok(LookupOutcome::ExactMatch(drug)) => self.display_drug_info(drug),
+            Ok(LookupOutcome::Candidates(candidates)) => {
+                self.screen = Screen::Candidates {
+                    field,
+                    candidates,
+                    selected: 0,
+                    purpose: LookupPurpose::ShowInfo,
+                };
+            }
+            Ok(LookupOutcome::NoMatch) => self.screen = Screen::NoMatch { field },
+            Err(err) => self.screen = Screen::Error(err.to_string()),
+        }
+    }
+
+    fn display_drug_info(&mut self, drug: DrugRecord<'a>) {
+        match self.db.drug_facts(drug.id()) {
+            Ok(facts) => self.screen = Screen::DrugInfo { drug, facts },
+            Err(err) => self.screen = Screen::Error(err.to_string()),
+        }
+    }
+
     fn resolve_next(&mut self) {
         for field in 0..FIELD_COUNT {
             if self.resolved[field].is_some() {
@@ -154,6 +212,7 @@ impl<'a> App<'a> {
                         field,
                         candidates,
                         selected: 0,
+                        purpose: LookupPurpose::CheckInteraction,
                     };
                     return;
                 }
@@ -192,8 +251,10 @@ impl<'a> App<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mensung_db::test_support::{build_men_file, TestDrug, TestInteraction};
-    use mensung_domain::{EvidenceLevel, Severity};
+    use mensung_db::test_support::{
+        build_men_file, TestClaim, TestDrug, TestDrugFact, TestInteraction,
+    };
+    use mensung_domain::{DrugFactKind, EvidenceLevel, Severity};
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)
@@ -213,7 +274,16 @@ mod tests {
         build_men_file(
             vec![
                 TestDrug::plain(0, "Aspirin"),
-                TestDrug::plain(1, "Warfarin"),
+                TestDrug {
+                    id: 1,
+                    name: "Warfarin",
+                    rxcui: Some("11289"),
+                    pubchem_cid: None,
+                    molecular_formula: None,
+                    molecular_weight: None,
+                    iupac_name: None,
+                    atc_codes: vec![("B01AA", "Vitamin K antagonists")],
+                },
                 TestDrug::plain(2, "Paracetamol"),
             ],
             &[TestInteraction::simple(
@@ -225,7 +295,23 @@ mod tests {
                 "test",
                 "Increased bleeding and hemorrhage probability.",
             )],
-            &[],
+            &[TestDrugFact {
+                id: 0,
+                drug: 1,
+                kind: DrugFactKind::BoxedWarning,
+                claims: vec![TestClaim {
+                    source_id: "openfda-label",
+                    source_name: "OpenFDA Drug Labeling",
+                    tier: 2,
+                    severity: Severity::HighRisk,
+                    evidence: EvidenceLevel::Established,
+                    confidence: 1,
+                    year: 2026,
+                    month: 7,
+                    day: 14,
+                    rationale: "Warfarin sodium can cause major or fatal bleeding.",
+                }],
+            }],
         )
     }
 
@@ -415,5 +501,123 @@ mod tests {
 
         assert_eq!(app.inputs()[0], "");
         assert_eq!(app.inputs()[1], "");
+    }
+
+    #[test]
+    fn f1_on_an_empty_field_does_nothing() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        app.handle_key(key(KeyCode::F(1)));
+        assert!(matches!(app.screen(), Screen::Input));
+    }
+
+    #[test]
+    fn f1_on_an_exact_match_shows_that_drugs_info_without_needing_the_other_field() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarin");
+        app.handle_key(key(KeyCode::F(1)));
+
+        match app.screen() {
+            Screen::DrugInfo { drug, facts } => {
+                assert_eq!(drug.name(), "Warfarin");
+                assert_eq!(drug.rxcui(), Some("11289"));
+                assert_eq!(facts.len(), 1);
+                assert_eq!(facts[0].kind(), DrugFactKind::BoxedWarning);
+            }
+            other => panic!("expected DrugInfo, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f1_on_a_typo_offers_candidates_and_never_auto_corrects() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarn");
+        app.handle_key(key(KeyCode::F(1)));
+
+        match app.screen() {
+            Screen::Candidates {
+                field,
+                candidates,
+                purpose,
+                ..
+            } => {
+                assert_eq!(*field, 0);
+                assert_eq!(*purpose, LookupPurpose::ShowInfo);
+                assert!(candidates.iter().any(|c| c.drug().name() == "Warfarin"));
+            }
+            other => panic!("expected Candidates, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn confirming_an_info_candidate_shows_drug_info_not_interaction_results() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarn");
+        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(key(KeyCode::Enter));
+
+        assert_eq!(app.inputs()[0], "Warfarin");
+        match app.screen() {
+            Screen::DrugInfo { drug, .. } => assert_eq!(drug.name(), "Warfarin"),
+            other => panic!("expected DrugInfo, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f1_on_a_drug_with_no_extra_data_still_shows_an_empty_drug_info_screen() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Aspirin");
+        app.handle_key(key(KeyCode::F(1)));
+
+        match app.screen() {
+            Screen::DrugInfo { drug, facts } => {
+                assert_eq!(drug.name(), "Aspirin");
+                assert_eq!(drug.rxcui(), None);
+                assert!(facts.is_empty());
+            }
+            other => panic!("expected DrugInfo, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dismissing_the_drug_info_screen_returns_to_input_and_clears_fields() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarin");
+        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(key(KeyCode::Enter));
+
+        assert!(matches!(app.screen(), Screen::Input));
+        assert_eq!(app.inputs()[0], "");
+    }
+
+    #[test]
+    fn checking_an_interaction_after_viewing_drug_info_still_works() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarin");
+        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(key(KeyCode::Enter));
+
+        type_str(&mut app, "Aspirin");
+        app.handle_key(key(KeyCode::Tab));
+        type_str(&mut app, "Warfarin");
+        app.handle_key(key(KeyCode::Enter));
+
+        match app.screen() {
+            Screen::Results { interactions } => assert_eq!(interactions.len(), 1),
+            other => panic!("expected Results, got {other:?}"),
+        }
     }
 }
