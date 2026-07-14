@@ -22,4 +22,14 @@ pub(crate) const INTERACTION_INDEX_LEN: Range<usize> = 100..108;
 pub(crate) const INTERACTION_RECORDS_OFFSET: Range<usize> = 108..116;
 pub(crate) const INTERACTION_RECORDS_LEN: Range<usize> = 116..124;
 #[allow(dead_code)]
-pub(crate) const RESERVED: Range<usize> = 124..128;
+pub(crate) const RESERVED_V1: Range<usize> = 124..128;
+pub(crate) const ATC_TABLE_OFFSET: Range<usize> = 128..136;
+pub(crate) const ATC_TABLE_LEN: Range<usize> = 136..144;
+pub(crate) const ATC_TABLE_COUNT: Range<usize> = 144..148;
+pub(crate) const DRUG_FACT_INDEX_OFFSET: Range<usize> = 148..156;
+pub(crate) const DRUG_FACT_INDEX_LEN: Range<usize> = 156..164;
+pub(crate) const DRUG_FACT_COUNT: Range<usize> = 164..168;
+pub(crate) const DRUG_FACT_RECORDS_OFFSET: Range<usize> = 168..176;
+pub(crate) const DRUG_FACT_RECORDS_LEN: Range<usize> = 176..184;
+#[allow(dead_code)]
+pub(crate) const RESERVED: Range<usize> = 184..192;
