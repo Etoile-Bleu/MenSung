@@ -171,6 +171,28 @@ fn draw_results(frame: &mut Frame, interactions: &[mensung_db::InteractionRecord
             interaction.evidence(),
             interaction.source()
         )));
+
+        let primary = interaction.primary_claim();
+        let other_claims: Vec<_> = interaction
+            .claims()
+            .iter()
+            .filter(|claim| **claim != primary)
+            .collect();
+        if !other_claims.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "Also reported by:",
+                Style::default().add_modifier(Modifier::ITALIC),
+            )));
+            for claim in other_claims {
+                lines.push(Line::from(format!(
+                    "  {} -- {}: {}",
+                    claim.source_name(),
+                    claim.severity(),
+                    claim.rationale()
+                )));
+            }
+        }
+
         lines.push(Line::from(""));
     }
 

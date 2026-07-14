@@ -66,6 +66,25 @@ pub(crate) fn run(db: &Database, args: &[String]) -> ExitCode {
             interaction.evidence(),
             interaction.source()
         );
+
+        let primary = interaction.primary_claim();
+        let other_claims: Vec<_> = interaction
+            .claims()
+            .iter()
+            .filter(|claim| **claim != primary)
+            .collect();
+        if !other_claims.is_empty() {
+            println!("Also reported by:");
+            for claim in other_claims {
+                println!(
+                    "  {} -- {}: {}",
+                    claim.source_name(),
+                    claim.severity(),
+                    claim.rationale()
+                );
+            }
+            println!();
+        }
     }
 
     println!("{DISCLAIMER}");
