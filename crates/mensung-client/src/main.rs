@@ -1,8 +1,9 @@
 //! MenSung: an offline medication interaction checker. Run with no
-//! arguments for the interactive terminal interface, or with two or more
-//! drug names for the scriptable command-line mode. This is an offline
-//! informational assistant; it does not replace professional clinical
-//! judgement.
+//! arguments for the interactive terminal interface, with two or more
+//! drug names for the scriptable interaction-check mode, or with
+//! `info <drug-name>` for a single drug's own facts and cross-reference
+//! data. This is an offline informational assistant; it does not replace
+//! professional clinical judgement.
 //!
 //! The medication database is not embedded in this binary: it is read from
 //! `medical_database.men` next to the executable (see data.rs), installed
@@ -38,9 +39,9 @@ fn main() -> ExitCode {
     };
 
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.is_empty() {
-        tui::run(&db)
-    } else {
-        cli::run(&db, &args)
+    match args.first().map(String::as_str) {
+        None => tui::run(&db),
+        Some("info") => cli::info(&db, &args[1..]),
+        Some(_) => cli::run(&db, &args),
     }
 }

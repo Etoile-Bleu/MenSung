@@ -1,13 +1,18 @@
 //! Scriptable, non-interactive mode: two or more INN drug names as
 //! arguments in, every known pairwise interaction out, most severe first.
 //! Used whenever mensung is invoked with at least one argument; zero
-//! arguments launches the TUI instead. This is an offline informational
-//! assistant; it does not replace professional clinical judgement.
+//! arguments launches the TUI instead. `mensung info <drug-name>` is a
+//! separate mode for a single drug's own facts (contraindications,
+//! warnings, and so on) and cross-reference data (RxCUI, ATC
+//! classification, chemical properties), not an interaction between two
+//! drugs. This is an offline informational assistant; it does not
+//! replace professional clinical judgement.
 //!
-//! Exit codes: 0 no known interaction found; 1 at least one interaction
-//! found, or a typed name could not be resolved (both mean "look again
-//! before proceeding"); 2 bad command-line usage; 70 an internal or
-//! database error, the same convention as the Unix EX_SOFTWARE sysexit.
+//! Exit codes: 0 no known interaction found (or, for `info`, the drug
+//! resolved successfully); 1 at least one interaction found, or a typed
+//! name could not be resolved (both mean "look again before proceeding");
+//! 2 bad command-line usage; 70 an internal or database error, the same
+//! convention as the Unix EX_SOFTWARE sysexit.
 
 use std::process::ExitCode;
 
@@ -89,6 +94,102 @@ pub(crate) fn run(db: &Database, args: &[String]) -> ExitCode {
 
     println!("{DISCLAIMER}");
     ExitCode::from(1)
+}
+
+/// A single drug's own facts and cross-reference data: RxCUI, WHO ATC
+/// classification, chemical properties, and any contraindications,
+/// warnings, or similar facts known about it, as opposed to `run`'s
+/// interaction between two or more drugs.
+pub(crate) fn info(db: &Database, args: &[String]) -> ExitCode {
+    let Some(query) = args.first() else {
+        eprintln!("Usage: mensung info <drug-name>");
+        eprintln!("Shows RxCUI, ATC classification, chemical properties, and known");
+        eprintln!("drug-specific facts (contraindications, warnings, etc.) for one drug.");
+        return ExitCode::from(2);
+    };
+
+    let resolved = match resolve_all(db, std::slice::from_ref(query)) {
+        Ok(resolved) => resolved,
+        Err(outcome) => return outcome,
+    };
+    let drug = &resolved[0];
+
+    println!("{}\n", drug.name());
+
+    let atc_codes: Result<Vec<_>, DbError> = drug.atc_codes().collect();
+    let atc_codes = match atc_codes {
+        Ok(codes) => codes,
+        Err(err) => return fatal_database_error(&err),
+    };
+
+    let mut has_reference_data = false;
+    if let Some(rxcui) = drug.rxcui() {
+        println!("RxCUI: {rxcui}");
+        has_reference_data = true;
+    }
+    for atc in &atc_codes {
+        println!("ATC: {} ({})", atc.code(), atc.class_name());
+        has_reference_data = true;
+    }
+    if let Some(formula) = drug.molecular_formula() {
+        match drug.molecular_weight() {
+            Some(weight) => println!("Chemical: {formula}, {weight} g/mol"),
+            None => println!("Chemical: {formula}"),
+        }
+        has_reference_data = true;
+    }
+    if let Some(iupac) = drug.iupac_name() {
+        println!("IUPAC name: {iupac}");
+        has_reference_data = true;
+    }
+
+    let facts = match db.drug_facts(drug.id()) {
+        Ok(facts) => facts,
+        Err(err) => return fatal_database_error(&err),
+    };
+
+    if has_reference_data && !facts.is_empty() {
+        println!();
+    }
+
+    if facts.is_empty() {
+        if !has_reference_data {
+            println!(
+                "No additional reference information for {} beyond interaction checks.",
+                drug.name()
+            );
+        }
+    } else {
+        for (index, fact) in facts.iter().enumerate() {
+            if index > 0 {
+                println!();
+            }
+            println!("{} ({})", fact.kind(), fact.severity());
+            println!("{}", fact.rationale());
+            println!("Evidence: {} ({})", fact.evidence(), fact.source());
+
+            let primary = fact.primary_claim();
+            let other_claims: Vec<_> = fact
+                .claims()
+                .iter()
+                .filter(|claim| **claim != primary)
+                .collect();
+            if !other_claims.is_empty() {
+                println!("Also reported by:");
+                for claim in other_claims {
+                    println!(
+                        "  {} -- {}: {}",
+                        claim.source_name(),
+                        claim.severity(),
+                        claim.rationale()
+                    );
+                }
+            }
+        }
+    }
+
+    println!("\n{DISCLAIMER}");
+    ExitCode::SUCCESS
 }
 
 fn resolve_all<'a>(db: &Database<'a>, queries: &[String]) -> Result<Vec<DrugRecord<'a>>, ExitCode> {
