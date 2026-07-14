@@ -1,4 +1,4 @@
-//! Parses and validates the fixed 128-byte .men header defined in
+//! Parses and validates the fixed 192-byte .men header defined in
 //! docs/DATABASE_FORMAT.md: magic, version, header CRC32, and the section
 //! offset table. Every other section is only read after this succeeds.
 
@@ -6,9 +6,9 @@ use crate::bytes::{read_u16, read_u32, read_u64};
 use crate::layout;
 use crate::DbError;
 
-pub(crate) const HEADER_LEN: usize = 128;
+pub(crate) const HEADER_LEN: usize = 192;
 const MAGIC: [u8; 4] = *b"MEN1";
-const SUPPORTED_FORMAT_VERSION: u16 = 1;
+const SUPPORTED_FORMAT_VERSION: u16 = 2;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Header {
@@ -24,6 +24,14 @@ pub(crate) struct Header {
     pub(crate) interaction_index_len: u64,
     pub(crate) interaction_records_offset: u64,
     pub(crate) interaction_records_len: u64,
+    pub(crate) atc_table_offset: u64,
+    pub(crate) atc_table_len: u64,
+    pub(crate) atc_table_count: u32,
+    pub(crate) drug_fact_index_offset: u64,
+    pub(crate) drug_fact_index_len: u64,
+    pub(crate) drug_fact_count: u32,
+    pub(crate) drug_fact_records_offset: u64,
+    pub(crate) drug_fact_records_len: u64,
 }
 
 impl Header {
@@ -75,6 +83,14 @@ impl Header {
             interaction_index_len: read_u64(bytes, layout::INTERACTION_INDEX_LEN.start)?,
             interaction_records_offset: read_u64(bytes, layout::INTERACTION_RECORDS_OFFSET.start)?,
             interaction_records_len: read_u64(bytes, layout::INTERACTION_RECORDS_LEN.start)?,
+            atc_table_offset: read_u64(bytes, layout::ATC_TABLE_OFFSET.start)?,
+            atc_table_len: read_u64(bytes, layout::ATC_TABLE_LEN.start)?,
+            atc_table_count: read_u32(bytes, layout::ATC_TABLE_COUNT.start)?,
+            drug_fact_index_offset: read_u64(bytes, layout::DRUG_FACT_INDEX_OFFSET.start)?,
+            drug_fact_index_len: read_u64(bytes, layout::DRUG_FACT_INDEX_LEN.start)?,
+            drug_fact_count: read_u32(bytes, layout::DRUG_FACT_COUNT.start)?,
+            drug_fact_records_offset: read_u64(bytes, layout::DRUG_FACT_RECORDS_OFFSET.start)?,
+            drug_fact_records_len: read_u64(bytes, layout::DRUG_FACT_RECORDS_LEN.start)?,
         };
 
         header.validate_sections_within(bytes.len())?;
@@ -91,6 +107,9 @@ impl Header {
                 self.interaction_records_offset,
                 self.interaction_records_len,
             ),
+            (self.atc_table_offset, self.atc_table_len),
+            (self.drug_fact_index_offset, self.drug_fact_index_len),
+            (self.drug_fact_records_offset, self.drug_fact_records_len),
         ] {
             let end = offset.checked_add(len).ok_or(DbError::Truncated)?;
             if end > total_len {
@@ -131,7 +150,17 @@ pub(crate) mod tests {
         header[layout::INTERACTION_RECORDS_OFFSET]
             .copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
         header[layout::INTERACTION_RECORDS_LEN].copy_from_slice(&0u64.to_le_bytes());
-        header[layout::RESERVED].copy_from_slice(&[0u8; 4]);
+        header[layout::RESERVED_V1].copy_from_slice(&[0u8; 4]);
+        header[layout::ATC_TABLE_OFFSET].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        header[layout::ATC_TABLE_LEN].copy_from_slice(&0u64.to_le_bytes());
+        header[layout::ATC_TABLE_COUNT].copy_from_slice(&0u32.to_le_bytes());
+        header[layout::DRUG_FACT_INDEX_OFFSET].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        header[layout::DRUG_FACT_INDEX_LEN].copy_from_slice(&0u64.to_le_bytes());
+        header[layout::DRUG_FACT_COUNT].copy_from_slice(&0u32.to_le_bytes());
+        header[layout::DRUG_FACT_RECORDS_OFFSET]
+            .copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        header[layout::DRUG_FACT_RECORDS_LEN].copy_from_slice(&0u64.to_le_bytes());
+        header[layout::RESERVED].copy_from_slice(&[0u8; 8]);
 
         let crc = compute_header_crc32(&header);
         header[layout::HEADER_CRC32].copy_from_slice(&crc.to_le_bytes());
@@ -156,10 +185,10 @@ pub(crate) mod tests {
     #[test]
     fn rejects_an_unsupported_format_version() {
         let mut bytes = valid_header_bytes(0);
-        bytes[layout::FORMAT_VERSION].copy_from_slice(&2u16.to_le_bytes());
+        bytes[layout::FORMAT_VERSION].copy_from_slice(&1u16.to_le_bytes());
         assert_eq!(
             Header::parse(&bytes).unwrap_err(),
-            DbError::UnsupportedVersion(2)
+            DbError::UnsupportedVersion(1)
         );
     }
 

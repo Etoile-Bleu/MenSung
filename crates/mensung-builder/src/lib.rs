@@ -11,6 +11,7 @@
 
 mod atc;
 mod atc_download;
+mod claims;
 mod ddinter;
 mod download;
 mod error;
@@ -26,6 +27,7 @@ mod writer;
 
 pub use atc::{attach_atc_codes, AtcImportError};
 pub use atc_download::{fetch_all as fetch_all_atc_codes, AtcFetchError};
+pub use claims::{ddinter_source, wrap_as_claims, DDINTER_SOURCE_ID};
 pub use ddinter::{import_ddinter, ImportError};
 pub use download::{download_and_import_ddinter, is_cached, DownloadError};
 pub use error::BuildError;
@@ -38,13 +40,14 @@ pub use rxnorm::{attach_rxcuis, RxNormImportError};
 pub use rxnorm_download::{fetch_all as fetch_all_rxcuis, RxNormFetchError};
 pub use validate::{validate, ValidationIssue};
 
-use mensung_domain::{Drug, Interaction};
+use mensung_domain::{Drug, DrugFact, InteractionFact};
 
 pub fn build_database(
     drugs: Vec<Drug>,
-    interactions: Vec<Interaction>,
+    interactions: Vec<InteractionFact>,
+    drug_facts: Vec<DrugFact>,
 ) -> Result<(Vec<u8>, ValidationReport), BuildError> {
-    let issues = validate::validate(&drugs, &interactions);
+    let issues = validate::validate(&drugs, &interactions, &drug_facts);
     let report = ValidationReport {
         errors: issues.len(),
         warnings: 0,
@@ -57,7 +60,7 @@ pub fn build_database(
         });
     }
 
-    let bytes = writer::compile(drugs, &interactions);
+    let bytes = writer::compile(drugs, &interactions, &drug_facts);
     self_verify_by_reopening(&bytes)?;
 
     Ok((bytes, report))

@@ -33,7 +33,7 @@ use mensung_domain::{
 };
 use serde::Deserialize;
 
-const DDINTER_SOURCE: &str = "DDInter (http://ddinter.scbdd.com/)";
+pub(crate) const DDINTER_SOURCE: &str = "DDInter (http://ddinter.scbdd.com/)";
 
 #[derive(Debug, thiserror::Error)]
 pub enum ImportError {
@@ -267,7 +267,8 @@ DDInter1112,\"Thyroid, porcine\",DDInter513,Dexamethasone,Moderate\n";
     fn output_opens_and_round_trips_through_mensung_db() {
         let (drugs, interactions) =
             import_ddinter(vec![SAMPLE_FILE_A.as_bytes(), SAMPLE_FILE_B.as_bytes()]).unwrap();
-        let (bytes, report) = crate::build_database(drugs, interactions).unwrap();
+        let interactions = crate::wrap_as_claims(interactions);
+        let (bytes, report) = crate::build_database(drugs, interactions, Vec::new()).unwrap();
         assert_eq!(report.errors, 0);
         let db = Database::open(&bytes).unwrap();
         assert_eq!(db.drug_count(), 5);

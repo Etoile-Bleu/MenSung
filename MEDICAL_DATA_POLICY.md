@@ -104,13 +104,16 @@ label field OpenFDA does not represent as a single dedicated field on the
 newer label format (breastfeeding guidance folded into a subsection with
 no field of its own, on some labels) is skipped rather than guessed at.
 
-This importer is not yet wired into `mensung-client`'s runtime install
-flow or the compiled `.men` file: `DrugFact`s need a `.men` format v2 with
-a shared string table to be persisted and displayed at all (see Trust and
-Conflict Resolution below), which does not exist yet. Today it exists as
-tested, working `mensung-builder` code, verified end to end against real
-label data for real drugs, ready to be wired in once that format work
-lands.
+The `.men` format (see docs/DATABASE_FORMAT.md) can persist `DrugFact`s
+since format version 2, but this importer is not yet wired into
+`mensung-client`'s runtime install flow: `data.rs`'s `install()` still
+only fetches and compiles DDInter. Running OpenFDA's rate-limited,
+one-request-per-drug fetch for every installed drug takes real time (see
+`openfda_download.rs`'s pacing) and needs its own progress UX, not silent
+minutes-long waiting, so wiring it in is deliberately left for a separate
+pass; see ROADMAP.md's Phase 8b. Today this importer exists as tested,
+working `mensung-builder` code, verified end to end against real label
+data for real drugs.
 
 The original integration plan also named DailyMed alongside OpenFDA for
 this same kind of data (contraindications, warnings, pregnancy, dosage,
@@ -132,8 +135,10 @@ Unique Identifier) to each drug MenSung already knows about, so a drug
 record can be cross-referenced against RxNorm, DailyMed, and any other
 system that keys on RxCUI rather than a name string. `Drug::rxcui()` is
 `None` until a build actually runs this lookup and compiles the result
-in; today, like the OpenFDA importer above, it is tested and verified
-against real data but not yet wired into a build.
+in; the `.men` format can persist it since format version 2, but, like
+the OpenFDA importer above, this is not yet wired into
+`mensung-client`'s runtime install flow, only tested and verified
+against real data.
 
 Lookups use RxNorm's own "normalized" search mode (`rxcui.json?...&search=1`),
 which already accounts for salt forms, word order, and common
@@ -152,8 +157,8 @@ address (checked directly against RxNorm's Terms of Service).
 [PubChem's PUG REST API](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest)
 (`pubchem.rs`, `pubchem_download.rs`), attaching each drug's PubChem CID,
 molecular formula, molecular weight, and IUPAC name as
-`ChemicalProperties`, using the same not-yet-wired-into-a-build pattern
-as OpenFDA and RxNorm above. This is reference chemistry information, not
+`ChemicalProperties`, using the same not-yet-wired-into-`mensung-client`
+pattern as OpenFDA and RxNorm above. This is reference chemistry information, not
 a clinical assertion: it carries no severity or evidence level and does
 not go through the `Claim`/`Source` conflict resolution model, since
 there is nothing to resolve a disagreement about.
@@ -180,8 +185,8 @@ subtly different number than the source gave.
 (Anatomical Therapeutic Chemical) classification codes (`atc.rs`,
 `atc_download.rs`), attaching zero or more `AtcCode`s to each drug, e.g.
 `B01AA` ("Vitamin K antagonists") for warfarin. Like the sources above,
-this is tested and verified against real data but not yet wired into a
-build.
+this is tested and verified against real data but not yet wired into
+`mensung-client`'s runtime install flow.
 
 WHO's own [ATC/DDD Index](https://www.whocc.no/atc_ddd_index/) has no
 bulk download or programmatic API, checked directly: it is a name-search
@@ -206,14 +211,17 @@ never silently attaches to the plain ingredient's record.
 
 ## Trust and Conflict Resolution
 
-DDInter is currently the only source compiled into the shipped database.
-OpenFDA's importer exists and is verified against real data (see Data
-Sources above) but is not yet wired into a build, since `DrugFact`s have
-nowhere to be persisted until the `.men` format v2 described below lands.
-The domain layer (`mensung-domain`) already models what happens once a
-second source is compiled in and disagrees with the first; this section
-documents that model now so the policy exists before that happens, not
-after.
+DDInter is currently the only source compiled into the databases
+`mensung-client` actually installs. OpenFDA's, RxNorm's, PubChem's, and
+WHO ATC's importers all exist, are verified against real data, and the
+`.men` format (version 2, see docs/DATABASE_FORMAT.md) can persist
+everything they produce, but none of the four is yet called from
+`mensung-client`'s runtime install flow; see the Data Sources subsections
+above and ROADMAP.md's Phase 8b for why that wiring is a separate,
+not-yet-done piece of work. The domain layer (`mensung-domain`) already
+models what happens once a second source is compiled in and disagrees
+with the first; this section documents that model now so the policy
+exists before that happens, not after.
 
 Every clinical fact, an interaction between two drugs or a fact about a
 single drug (contraindication, boxed warning, pregnancy/breastfeeding
@@ -252,14 +260,18 @@ Severity itself is a four-tier clinical scale, not a boolean:
 | `Minor` | Informational / minor interaction |
 | `Unknown` | Severity not specified by the source |
 
-The current `.men` format and CLI/TUI display only the single, resolved
-claim (`InteractionFact::resolve()` collapses to the existing `Interaction`
-shape); the other claims stay reachable through `claims()` in memory but
-are not yet persisted to disk or shown in the interface. Making the full
-multi-source provenance visible on disk and on screen needs a `.men` format
-v2 with a shared string table, not built yet; until then, this model exists
-in the domain layer, proven by its own test suite, ahead of the second real
-source that will actually exercise a disagreement.
+The `.men` format has persisted every claim, not just the resolved one,
+since format version 2 (see docs/DATABASE_FORMAT.md): `mensung_db`'s
+`InteractionRecord::claims()` and `DrugFactRecord::claims()` return the
+full list read back from disk. The CLI and TUI still only ever call the
+resolved-view accessors (`severity()`, `description()`, `evidence()`,
+`source()`), the same names `InteractionFact::resolve()` and
+`InteractionRecord`'s v1-compatible accessors already used, so showing
+more than the resolved view is a display design question, not a storage
+one; see ROADMAP.md's Phase 8b. DDInter, the only source actually
+compiled into an installed database today, only ever produces a single
+claim per interaction, so this has not yet been exercised against a real
+multi-claim record outside this domain layer's own test suite.
 
 ## Data License
 

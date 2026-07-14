@@ -127,8 +127,10 @@ model](#security-model) for the network implications of that.
 | Binary size | < 10MB |
 
 The installed database is separate from the binary and is not held to the
-10MB figure; the full DDInter dataset compiles to roughly 28MB. See
-ROADMAP.md Phase 5's known tradeoff note.
+10MB figure, though in practice it now fits comfortably under it: the
+full DDInter dataset compiles to about 9.3MB under the `.men` format v2
+shared string table (down from format v1's roughly 28MB). See
+ROADMAP.md Phase 5's known tradeoff note and Phase 8b.
 
 ## Installation
 

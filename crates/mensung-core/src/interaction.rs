@@ -40,39 +40,31 @@ mod tests {
     fn three_drug_database() -> Vec<u8> {
         build_men_file(
             vec![
-                TestDrug {
-                    id: 0,
-                    name: "Aspirin",
-                },
-                TestDrug {
-                    id: 1,
-                    name: "Warfarin",
-                },
-                TestDrug {
-                    id: 2,
-                    name: "Paracetamol",
-                },
+                TestDrug::plain(0, "Aspirin"),
+                TestDrug::plain(1, "Warfarin"),
+                TestDrug::plain(2, "Paracetamol"),
             ],
             &[
-                TestInteraction {
-                    id: 0,
-                    drug_a: 0,
-                    drug_b: 1,
-                    severity: Severity::Contraindicated,
-                    description: "Increased bleeding and hemorrhage probability.",
-                    evidence: EvidenceLevel::Established,
-                    source: "WHO drug interaction reference",
-                },
-                TestInteraction {
-                    id: 1,
-                    drug_a: 1,
-                    drug_b: 2,
-                    severity: Severity::Minor,
-                    description: "Rare, clinically minor effect on anticoagulation.",
-                    evidence: EvidenceLevel::Theoretical,
-                    source: "OpenFDA",
-                },
+                TestInteraction::simple(
+                    0,
+                    0,
+                    1,
+                    Severity::Contraindicated,
+                    EvidenceLevel::Established,
+                    "WHO drug interaction reference",
+                    "Increased bleeding and hemorrhage probability.",
+                ),
+                TestInteraction::simple(
+                    1,
+                    1,
+                    2,
+                    Severity::Minor,
+                    EvidenceLevel::Theoretical,
+                    "OpenFDA",
+                    "Rare, clinically minor effect on anticoagulation.",
+                ),
             ],
+            &[],
         )
     }
 

@@ -89,7 +89,9 @@ fn fixture_dataset() -> (Vec<Drug>, Vec<Interaction>) {
 #[test]
 fn fixture_dataset_matches_golden_cases() {
     let (drugs, interactions) = fixture_dataset();
-    let (bytes, _report) = mensung_builder::build_database(drugs, interactions).unwrap();
+    let interactions = mensung_builder::wrap_as_claims(interactions);
+    let (bytes, _report) =
+        mensung_builder::build_database(drugs, interactions, Vec::new()).unwrap();
     let db = Database::open(&bytes).unwrap();
 
     let golden_json = include_str!(concat!(
