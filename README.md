@@ -212,6 +212,20 @@ see [ROADMAP.md](ROADMAP.md)'s Phase 8b and the builder CLI
 (`mensung-builder build --out <path>`) for how a richer database gets
 built.
 
+```bash
+mensung version
+mensung check-update
+```
+
+`version` prints the installed version and exits; it never touches the
+network or the database. `check-update` is a manual, explicit request
+against GitHub's release API for a version newer than the one running; it
+never runs automatically (not at startup, not anywhere else), and it never
+downloads or installs anything itself, only reports what it found and a
+link to get it, the same "explicit confirmation, no silent network
+activity" rule the dataset install follows. Both work with no database
+installed and never trigger the dataset install prompt.
+
 See [MEDICAL_DATA_POLICY.md](MEDICAL_DATA_POLICY.md) for why DDInter and not
 OpenFDA/RxNorm/WHO as originally planned, and for the data license that
 applies to the installed database (CC BY-NC-SA 4.0, separate from this
@@ -247,25 +261,37 @@ Supported build targets: `x86_64-unknown-linux-musl` (statically linked),
 
 MenSung never sends telemetry, never collects patient data, and never
 stores patient information. It does contain network code, unlike earlier
-drafts of this project: `mensung-builder`'s downloader, called from
-`mensung-client`, fetches DDInter's public CSV export over HTTPS when a
-database is not yet installed and the user explicitly agrees, either by
-answering the interactive prompt or by setting
-`MENSUNG_DOWNLOAD_DDINTER=1` ahead of time. That is the entire network
-surface in the shipped binary:
+drafts of this project, in exactly two places, both explicit and neither
+automatic:
 
-- It never runs automatically or silently; it only runs when
-  `medical_database.men` is missing and the user has said yes.
-- It fetches from `ddinter.scbdd.com` first, and only from one other host:
-  this project's own GitHub Releases, as a fallback mirror of the exact
-  same files, used when DDInter's own TLS certificate cannot be validated
-  (true as of this writing; see MEDICAL_DATA_POLICY.md). Nothing else.
-- TLS certificate validation is never disabled on either source. An
-  invalid or expired certificate is a hard failure, not a fallback to an
+- **Dataset install.** `mensung-builder`'s downloader, called from
+  `mensung-client`, fetches DDInter's public CSV export over HTTPS when a
+  database is not yet installed and the user explicitly agrees, either by
+  answering the interactive prompt or by setting
+  `MENSUNG_DOWNLOAD_DDINTER=1` ahead of time. It fetches from
+  `ddinter.scbdd.com` first, and only from one other host: this project's
+  own GitHub Releases, as a fallback mirror of the exact same files, used
+  when DDInter's own TLS certificate cannot be validated (true as of this
+  writing; see MEDICAL_DATA_POLICY.md). Nothing else.
+- **`mensung check-update`.** Fetches this project's latest release
+  metadata from `api.github.com` when, and only when, the user runs that
+  exact command. It never runs at startup or anywhere else, and it never
+  downloads or installs a new binary itself; it only reports what it found
+  and a link to get it. See [Usage](#usage).
+
+Both:
+
+- Never run automatically or silently; each only runs on its own explicit
+  trigger (a missing database plus a yes, or the `check-update` command
+  itself).
+- TLS certificate validation is never disabled on any source. An invalid
+  or expired certificate is a hard failure, not a fallback to an
   unverified connection.
-- Once a database is installed, every drug lookup is answered locally; the
-  lookup path itself makes no network calls, regardless of how the
-  database got there.
+- Touch no other host than the ones named above.
+
+Once a database is installed, every drug lookup is answered locally; the
+lookup path itself makes no network calls, regardless of how the database
+got there, and `version` never touches the network at all.
 
 See [SECURITY.md](SECURITY.md) for the vulnerability reporting process and
 scope.
