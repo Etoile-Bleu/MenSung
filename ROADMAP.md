@@ -88,7 +88,8 @@ live-network tests since it downloads the real dataset), under the
 - [x] Two-drug (and N-drug) interaction lookup command
 - [x] Plain-text output mode; JSON output mode not added, nothing consumes it yet
 - [x] Exit codes distinguishing "no interaction," "interaction found," "input error," and "internal/database error"
-- [x] Wired to `mensung-core` and `mensung-db` for lookups; `mensung-builder` for installing the database at runtime if missing (`data.rs`), the only network-touching path in the binary, gated on explicit user confirmation. No dataset is embedded at build time; see MEDICAL_DATA_POLICY.md's Data License section and README.md's Security model for what this means and why
+- [x] Wired to `mensung-core` and `mensung-db` for lookups; `mensung-builder` for installing the database at runtime if missing (`data.rs`), gated on explicit user confirmation. No dataset is embedded at build time; see MEDICAL_DATA_POLICY.md's Data License section and README.md's Security model for what this means and why
+- [x] `mensung version` (prints the crate version, never touches the network or the database) and `mensung check-update` (a manual, explicit check against GitHub's release API for a newer version, never automatic, never downloads or installs anything itself, only reports what it found and a link to get it manually -- the same "explicit confirmation, no silent network activity" rule the dataset install already follows). Both are handled before the database is loaded, so neither needs one installed or can trigger the install prompt. Verified against the real, live GitHub API, not assumed (`tests/version_and_update.rs`, the live-network test `#[ignore]`d like this project's other real-API tests)
 
 ## Phase 7: TUI (`mensung-client`) (done, live suggestions still open)
 

@@ -812,6 +812,8 @@ dependencies = [
  "mensung-db",
  "mensung-domain",
  "ratatui",
+ "serde_json",
+ "ureq",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "CLI and TUI for MenSung. The only crate depending on ratatui/crossterm. Installs its own dataset at runtime via mensung-builder."
+description = "CLI and TUI for MenSung. The only crate depending on ratatui/crossterm. Installs its own dataset at runtime via mensung-builder; checks for a newer release on explicit request only."
 repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
@@ -21,6 +21,8 @@ mensung-db = { version = "0.1.0", path = "../mensung-db" }
 mensung-builder = { version = "0.1.0", path = "../mensung-builder" }
 ratatui.workspace = true
 crossterm.workspace = true
+ureq.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 mensung-db = { version = "0.1.0", path = "../mensung-db", features = ["test-support"] }
