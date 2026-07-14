@@ -15,6 +15,8 @@ mod error;
 mod openfda;
 mod openfda_download;
 mod report;
+mod rxnorm;
+mod rxnorm_download;
 mod validate;
 mod writer;
 
@@ -24,6 +26,8 @@ pub use error::BuildError;
 pub use openfda::{import_openfda_labels, openfda_source, OpenFdaImportError, OPENFDA_SOURCE_ID};
 pub use openfda_download::{fetch_all as fetch_all_openfda_labels, OpenFdaFetchError};
 pub use report::ValidationReport;
+pub use rxnorm::{attach_rxcuis, RxNormImportError};
+pub use rxnorm_download::{fetch_all as fetch_all_rxcuis, RxNormFetchError};
 pub use validate::{validate, ValidationIssue};
 
 use mensung_domain::{Drug, Interaction};

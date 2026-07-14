@@ -20,6 +20,7 @@ mod ids;
 mod inn_name;
 mod interaction;
 mod interaction_fact;
+mod rxcui;
 mod severity;
 mod source;
 
@@ -34,5 +35,6 @@ pub use ids::{DrugFactId, DrugId, InteractionId};
 pub use inn_name::InnName;
 pub use interaction::{DrugPair, Interaction};
 pub use interaction_fact::InteractionFact;
+pub use rxcui::Rxcui;
 pub use severity::Severity;
 pub use source::{Source, SourceId, SourceTier};

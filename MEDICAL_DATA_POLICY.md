@@ -112,6 +112,29 @@ tested, working `mensung-builder` code, verified end to end against real
 label data for real drugs, ready to be wired in once that format work
 lands.
 
+### RxNorm Identity Normalization
+
+`mensung-builder` also has a working, tested lookup for
+[RxNorm's REST API](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html)
+(`rxnorm.rs`, `rxnorm_download.rs`), attaching an RxCUI (RxNorm Concept
+Unique Identifier) to each drug MenSung already knows about, so a drug
+record can be cross-referenced against RxNorm, DailyMed, and any other
+system that keys on RxCUI rather than a name string. `Drug::rxcui()` is
+`None` until a build actually runs this lookup and compiles the result
+in; today, like the OpenFDA importer above, it is tested and verified
+against real data but not yet wired into a build.
+
+Lookups use RxNorm's own "normalized" search mode (`rxcui.json?...&search=1`),
+which already accounts for salt forms, word order, and common
+abbreviations server-side, checked directly against real responses rather
+than assumed. This is deliberately the only matching this project does
+for RxNorm: layering MenSung's own fuzzy matching on top of a service
+that already does conservative, documented normalization would only add
+false-match risk, not reduce it. A drug RxNorm has no match for is left
+without an RxCUI, not guessed at. Requests are paced at 10 per second,
+half of RxNorm's own stated limit of 20 requests per second per IP
+address (checked directly against RxNorm's Terms of Service).
+
 ## Trust and Conflict Resolution
 
 DDInter is currently the only source compiled into the shipped database.

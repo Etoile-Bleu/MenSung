@@ -47,4 +47,7 @@ pub enum DomainError {
 
     #[error("drug fact {0:?} was constructed with zero claims; every fact needs at least one")]
     NoClaimsForDrugFact(DrugFactId),
+
+    #[error("'{0}' is not a valid RxCUI (must be a non-empty string of digits)")]
+    InvalidRxcui(String),
 }
