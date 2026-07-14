@@ -12,7 +12,7 @@ use ratatui::Frame;
 use super::app::{App, Screen};
 
 const TITLE: &str = " MenSung -- offline medication interaction checker ";
-const HELP_INPUT: &str = "Tab/Up/Down: switch field  Enter: check  Esc: quit";
+const HELP_INPUT: &str = "Tab/Up/Down: switch field  Enter: check  F1: drug info  Esc: quit";
 const HELP_CANDIDATES: &str = "Up/Down: select  Enter: confirm  Esc: back";
 const HELP_DISMISS: &str = "Enter/Esc: back";
 
@@ -38,6 +38,7 @@ pub(crate) fn draw(frame: &mut Frame, app: &App) {
             field,
             candidates,
             selected,
+            ..
         } => draw_candidates(
             frame,
             app.inputs()[*field].as_str(),
@@ -57,12 +58,16 @@ pub(crate) fn draw(frame: &mut Frame, app: &App) {
         ),
         Screen::Error(message) => draw_message(frame, "Error", message, Color::Red, chunks[1]),
         Screen::Results { interactions } => draw_results(frame, interactions, chunks[1]),
+        Screen::DrugInfo { drug, facts } => draw_drug_info(frame, drug, facts, chunks[1]),
     }
 
     let help = match app.screen() {
         Screen::Input => HELP_INPUT,
         Screen::Candidates { .. } => HELP_CANDIDATES,
-        Screen::NoMatch { .. } | Screen::Error(_) | Screen::Results { .. } => HELP_DISMISS,
+        Screen::NoMatch { .. }
+        | Screen::Error(_)
+        | Screen::Results { .. }
+        | Screen::DrugInfo { .. } => HELP_DISMISS,
     };
     frame.render_widget(Paragraph::new(help), chunks[2]);
 }
@@ -197,5 +202,101 @@ fn draw_results(frame: &mut Frame, interactions: &[mensung_db::InteractionRecord
     }
 
     let block = Block::default().borders(Borders::ALL).title("Interactions");
+    frame.render_widget(Paragraph::new(lines).block(block), area);
+}
+
+fn draw_drug_info(
+    frame: &mut Frame,
+    drug: &mensung_db::DrugRecord,
+    facts: &[mensung_db::DrugFactRecord],
+    area: Rect,
+) {
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(Span::styled(
+        drug.name().to_string(),
+        Style::default().add_modifier(Modifier::BOLD),
+    )));
+    lines.push(Line::from(""));
+
+    let mut has_reference_data = false;
+    if let Some(rxcui) = drug.rxcui() {
+        lines.push(Line::from(format!("RxCUI: {rxcui}")));
+        has_reference_data = true;
+    }
+    for atc in drug.atc_codes().flatten() {
+        lines.push(Line::from(format!(
+            "ATC: {} ({})",
+            atc.code(),
+            atc.class_name()
+        )));
+        has_reference_data = true;
+    }
+    if let Some(formula) = drug.molecular_formula() {
+        let line = match drug.molecular_weight() {
+            Some(weight) => format!("Chemical: {formula}, {weight} g/mol"),
+            None => format!("Chemical: {formula}"),
+        };
+        lines.push(Line::from(line));
+        has_reference_data = true;
+    }
+    if let Some(iupac) = drug.iupac_name() {
+        lines.push(Line::from(format!("IUPAC name: {iupac}")));
+        has_reference_data = true;
+    }
+
+    if has_reference_data && !facts.is_empty() {
+        lines.push(Line::from(""));
+    }
+
+    if facts.is_empty() {
+        if !has_reference_data {
+            lines.push(Line::from(format!(
+                "No additional reference information for {} beyond interaction checks.",
+                drug.name()
+            )));
+        }
+    } else {
+        for (index, fact) in facts.iter().enumerate() {
+            if index > 0 {
+                lines.push(Line::from(""));
+            }
+            let color = severity_color(fact.severity());
+            lines.push(Line::from(Span::styled(
+                format!("{} ({})", fact.kind(), fact.severity()),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(fact.rationale().to_string()));
+            lines.push(Line::from(format!(
+                "Evidence: {} ({})",
+                fact.evidence(),
+                fact.source()
+            )));
+
+            let primary = fact.primary_claim();
+            let other_claims: Vec<_> = fact
+                .claims()
+                .iter()
+                .filter(|claim| **claim != primary)
+                .collect();
+            if !other_claims.is_empty() {
+                lines.push(Line::from(Span::styled(
+                    "Also reported by:",
+                    Style::default().add_modifier(Modifier::ITALIC),
+                )));
+                for claim in other_claims {
+                    lines.push(Line::from(format!(
+                        "  {} -- {}: {}",
+                        claim.source_name(),
+                        claim.severity(),
+                        claim.rationale()
+                    )));
+                }
+            }
+        }
+    }
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Drug Information");
     frame.render_widget(Paragraph::new(lines).block(block), area);
 }
