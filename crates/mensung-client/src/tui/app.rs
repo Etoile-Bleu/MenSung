@@ -212,28 +212,20 @@ mod tests {
     fn test_bytes() -> Vec<u8> {
         build_men_file(
             vec![
-                TestDrug {
-                    id: 0,
-                    name: "Aspirin",
-                },
-                TestDrug {
-                    id: 1,
-                    name: "Warfarin",
-                },
-                TestDrug {
-                    id: 2,
-                    name: "Paracetamol",
-                },
+                TestDrug::plain(0, "Aspirin"),
+                TestDrug::plain(1, "Warfarin"),
+                TestDrug::plain(2, "Paracetamol"),
             ],
-            &[TestInteraction {
-                id: 0,
-                drug_a: 0,
-                drug_b: 1,
-                severity: Severity::Contraindicated,
-                description: "Increased bleeding and hemorrhage probability.",
-                evidence: EvidenceLevel::Established,
-                source: "test",
-            }],
+            &[TestInteraction::simple(
+                0,
+                0,
+                1,
+                Severity::Contraindicated,
+                EvidenceLevel::Established,
+                "test",
+                "Increased bleeding and hemorrhage probability.",
+            )],
+            &[],
         )
     }
 

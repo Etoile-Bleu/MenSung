@@ -36,9 +36,9 @@ mod tests {
     fn database_with(names: &[(&'static str, u32)]) -> Vec<u8> {
         let drugs = names
             .iter()
-            .map(|&(name, id)| TestDrug { id, name })
+            .map(|&(name, id)| TestDrug::plain(id, name))
             .collect();
-        build_men_file(drugs, &[])
+        build_men_file(drugs, &[], &[])
     }
 
     #[test]

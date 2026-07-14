@@ -84,8 +84,9 @@ fn install(path: &Path) -> Result<Vec<u8>, String> {
     let download_dir = std::env::temp_dir().join("mensung-ddinter-download");
     let (drugs, interactions) = mensung_builder::download_and_import_ddinter(&download_dir)
         .map_err(|err| format!("Fatal: could not download the dataset: {err}"))?;
+    let interactions = mensung_builder::wrap_as_claims(interactions);
 
-    let (bytes, report) = mensung_builder::build_database(drugs, interactions)
+    let (bytes, report) = mensung_builder::build_database(drugs, interactions, Vec::new())
         .map_err(|err| format!("Fatal: could not compile the downloaded dataset: {err}"))?;
 
     std::fs::write(path, &bytes).map_err(|err| {
