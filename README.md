@@ -171,15 +171,17 @@ ask. Once installed, every lookup is fully offline again; nothing about
 answering questions touches the network.
 
 Run `mensung` with no arguments for the interactive terminal interface: two
-input fields, Tab to switch between them, Enter to check, F1 to show the
+input fields, Tab to switch between them, Enter to check, Alt+I to show the
 focused field's own drug information (RxCUI, WHO ATC classification,
 chemical properties, and any contraindications, boxed warnings, or similar
-facts known about it) instead of checking an interaction. A typed name with
-no exact match shows a ranked candidate list with a similarity score and
-waits for confirmation, the same for either F1 or Enter; it never guesses.
-Interactions and drug facts are shown red for contraindicated or high risk,
-yellow for moderate, minor, or unknown severity, green for no known
-interaction. Esc or Ctrl-C quits.
+facts known about it) instead of checking an interaction. Alt+I rather than
+a bare `i` or F1: a bare letter would collide with typing a drug name, and
+F1 is commonly intercepted by the terminal or OS for their own help screen
+before the app sees it. A typed name with no exact match shows a ranked
+candidate list with a similarity score and waits for confirmation, the same
+for either Alt+I or Enter; it never guesses. Interactions and drug facts are
+shown red for contraindicated or high risk, yellow for moderate, minor, or
+unknown severity, green for no known interaction. Esc or Ctrl-C quits.
 
 ```bash
 mensung <drug-1> <drug-2> [<drug-3> ...]
@@ -210,7 +212,7 @@ Confirm your selection and try again with the exact name.
 mensung info <drug-name>
 ```
 
-The command-line equivalent of the TUI's F1 key: one drug's own RxCUI, WHO
+The command-line equivalent of the TUI's Alt+I key: one drug's own RxCUI, WHO
 ATC classification, chemical properties, and any known contraindications,
 boxed warnings, or similar facts, instead of an interaction between two
 drugs. Exit codes: `0` the drug resolved (whether or not it has any facts

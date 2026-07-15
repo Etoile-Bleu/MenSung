@@ -12,7 +12,7 @@ use ratatui::Frame;
 use super::app::{App, Screen};
 
 const TITLE: &str = " MenSung -- offline medication interaction checker ";
-const HELP_INPUT: &str = "Tab/Up/Down: switch field  Enter: check  F1: drug info  Esc: quit";
+const HELP_INPUT: &str = "Tab/Up/Down: switch field  Enter: check  Alt+I: drug info  Esc: quit";
 const HELP_CANDIDATES: &str = "Up/Down: select  Enter: confirm  Esc: back";
 const HELP_DISMISS: &str = "Enter/Esc: back";
 

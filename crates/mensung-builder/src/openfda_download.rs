@@ -14,6 +14,15 @@
 //! `{"error":{"code":"NOT_FOUND", ...}}` with HTTP 404 for a query with no
 //! matches), not a failure; any other non-success status or transport
 //! error is a hard error.
+//!
+//! Every function in this file makes a real HTTPS request, so its tests
+//! are `#[ignore]`d by default and excluded from `cargo test --workspace`,
+//! the same convention every other live-network test in this workspace
+//! follows. Run them explicitly with `cargo test -p mensung-builder --lib
+//! openfda_download -- --ignored`. `openfda.rs`'s own tests cover the
+//! parsing and matching logic that consumes the response bodies these
+//! functions return, using a real captured response as a fixture, and do
+//! not touch the network.
 
 use std::io::Read as _;
 use std::thread;
@@ -101,15 +110,6 @@ pub fn fetch_all(drug_names: &[String]) -> Result<Vec<String>, OpenFdaFetchError
     Ok(bodies)
 }
 
-// Every function in this file makes a real HTTPS request, and a test
-// suite that depends on an external service being up on every run is a
-// flaky test suite, so these are `#[ignore]`d by default and excluded
-// from `cargo test --workspace`. Run them explicitly with
-// `cargo test -p mensung-builder --lib openfda_download -- --ignored`
-// when verifying this module against the live API by hand.
-// `openfda.rs`'s tests cover the parsing and matching logic that
-// consumes the response bodies these functions return, using a real
-// captured response as a fixture, and do not touch the network.
 #[cfg(test)]
 mod tests {
     use super::*;
