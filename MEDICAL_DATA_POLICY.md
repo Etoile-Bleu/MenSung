@@ -105,15 +105,18 @@ newer label format (breastfeeding guidance folded into a subsection with
 no field of its own, on some labels) is skipped rather than guessed at.
 
 The `.men` format (see docs/DATABASE_FORMAT.md) can persist `DrugFact`s
-since format version 2, but this importer is not yet wired into
-`mensung-client`'s runtime install flow: `data.rs`'s `install()` still
-only fetches and compiles DDInter. Running OpenFDA's rate-limited,
-one-request-per-drug fetch for every installed drug takes real time (see
-`openfda_download.rs`'s pacing) and needs its own progress UX, not silent
-minutes-long waiting, so wiring it in is deliberately left for a separate
-pass; see ROADMAP.md's Phase 8b. Today this importer exists as tested,
-working `mensung-builder` code, verified end to end against real label
-data for real drugs.
+since format version 2, and its output is what ships by default since
+`dataset_download.rs` was added to `mensung-client`: the enriched
+database in the `medical-database` GitHub Release is pre-built once by a
+maintainer running `mensung-builder`'s full pipeline, not fetched live
+per user. `mensung-client` itself still never runs OpenFDA's
+rate-limited, one-request-per-drug fetch directly; that would take real
+time per install (see `openfda_download.rs`'s pacing) and need its own
+progress UX, not silent minutes-long waiting, so a live per-user run
+remains deliberately out of scope; see ROADMAP.md's Phase 8b. `data.rs`'s
+DDInter-only `install_ddinter_only()` (no OpenFDA, RxNorm, ATC, or
+PubChem data) is kept only as a fallback for when the pre-built dataset
+cannot be downloaded.
 
 The original integration plan also named DailyMed alongside OpenFDA for
 this same kind of data (contraindications, warnings, pregnancy, dosage,
@@ -135,10 +138,9 @@ Unique Identifier) to each drug MenSung already knows about, so a drug
 record can be cross-referenced against RxNorm, DailyMed, and any other
 system that keys on RxCUI rather than a name string. `Drug::rxcui()` is
 `None` until a build actually runs this lookup and compiles the result
-in; the `.men` format can persist it since format version 2, but, like
-the OpenFDA importer above, this is not yet wired into
-`mensung-client`'s runtime install flow, only tested and verified
-against real data.
+in; like the OpenFDA data above, this ships by default via the pre-built
+`medical-database` GitHub Release rather than a live per-user fetch, for
+the same reasoning.
 
 Lookups use RxNorm's own "normalized" search mode (`rxcui.json?...&search=1`),
 which already accounts for salt forms, word order, and common
@@ -157,8 +159,8 @@ address (checked directly against RxNorm's Terms of Service).
 [PubChem's PUG REST API](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest)
 (`pubchem.rs`, `pubchem_download.rs`), attaching each drug's PubChem CID,
 molecular formula, molecular weight, and IUPAC name as
-`ChemicalProperties`, using the same not-yet-wired-into-`mensung-client`
-pattern as OpenFDA and RxNorm above. This is reference chemistry information, not
+`ChemicalProperties`, shipped by default the same pre-built way as
+OpenFDA and RxNorm above. This is reference chemistry information, not
 a clinical assertion: it carries no severity or evidence level and does
 not go through the `Claim`/`Source` conflict resolution model, since
 there is nothing to resolve a disagreement about.
@@ -185,8 +187,8 @@ subtly different number than the source gave.
 (Anatomical Therapeutic Chemical) classification codes (`atc.rs`,
 `atc_download.rs`), attaching zero or more `AtcCode`s to each drug, e.g.
 `B01AA` ("Vitamin K antagonists") for warfarin. Like the sources above,
-this is tested and verified against real data but not yet wired into
-`mensung-client`'s runtime install flow.
+this ships by default via the pre-built `medical-database` GitHub
+Release.
 
 WHO's own [ATC/DDD Index](https://www.whocc.no/atc_ddd_index/) has no
 bulk download or programmatic API, checked directly: it is a name-search
@@ -282,26 +284,65 @@ multi-claim record outside this domain layer's own test suite.
 
 MenSung's code is dual-licensed under [MIT](LICENSE-MIT) and
 [Apache-2.0](LICENSE-APACHE), fully permissive, including for commercial
-use. The compiled `.men` database that ships in official releases is a
-separate artifact under a different license, because it embeds real
-clinical data:
+use. The compiled `.men` database published on the dedicated
+[`medical-database` GitHub
+Release](https://github.com/Etoile-Bleu/MenSung/releases/tag/medical-database)
+(and installed by default at runtime, see Usage in README.md) is a
+separate artifact under different licenses, because it embeds real
+clinical data from five sources. Each was checked directly against its
+own terms, not assumed:
 
-- Built from DDInter, licensed
-  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/):
-  attribution required, non-commercial use only, share-alike.
-- `mensung-builder`'s code places no restriction on what data you compile
-  with it. Anyone can build their own `.men` database from a different,
-  more permissively-licensed dataset; that database would carry whatever
-  license its own source data allows. The CC BY-NC-SA restriction applies
-  only to the specific compiled database MenSung's official releases embed,
-  because that one is built from DDInter data.
+- **DDInter**: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/),
+  attribution required, non-commercial use only, share-alike. This is the
+  most restrictive of the five terms and governs the compiled file as a
+  whole.
+- **WHO ATC/DDD classification** (reached through NLM's RxClass API, not
+  WHO's own site; see WHO ATC Therapeutic Classification above): authored
+  and copyrighted by the WHO Collaborating Centre for Drug Statistics
+  Methodology, independent of RxClass's own unrestricted API terms.
+  Checked directly against [the WHO Collaborating Centre's copyright
+  page](https://atcddd.fhi.no/copyright_disclaimer/): "Copying and
+  distribution for commercial purposes is not allowed," attribution to
+  the WHO Collaborating Centre is required, and the material may not be
+  altered. MenSung stores ATC codes verbatim and cites the source on
+  every claim (see Trust and Conflict Resolution below), so this
+  restriction is already met by how the data is used, not just how it is
+  licensed.
+- **RxNorm** (NLM): the RxNorm/RxClass APIs this project actually calls
+  need no license; only downloading full RxNorm data releases, which
+  this project does not do, would need a free UMLS license. Checked
+  directly against [NLM's RxNorm Terms of
+  Service](https://www.nlm.nih.gov/research/umls/rxnorm/docs/termsofservice.html):
+  attribution to NLM is required, and NLM does not endorse this product.
+- **PubChem** (NCBI/NIH): not blanket public domain. NCBI's own site
+  policy names PubChem specifically as a resource that can "incorporate
+  material contributed or licensed by individuals, companies, or
+  organizations" carrying their own patent, copyright, or other IP
+  claims (checked directly at [NCBI's site
+  policies](https://www.ncbi.nlm.nih.gov/home/about/policies/)). The
+  properties this project fetches (molecular formula, molecular weight,
+  IUPAC name) are NCBI-computed intrinsic compound properties, not
+  literature- or submitter-sourced annotations, but this project makes
+  no independent claim about their copyright status beyond what NCBI
+  itself states.
+- **openFDA** (FDA): [CC0 1.0](https://open.fda.gov/license/), fully
+  public domain, no restriction, no attribution legally required.
+  Checked directly.
 
-If you redistribute, deploy, or use the officially released `.men` database,
-or a binary that embeds it, commercially, complying with DDInter's
-non-commercial license is your responsibility. MenSung's maintainers ship
-that data under the terms DDInter grants; how a downstream party
-subsequently uses, redistributes, or violates that license is between that
-party and DDInter, not MenSung. This is the ordinary allocation of
+`mensung-builder`'s code places no restriction on what data you compile
+with it. Anyone can build their own `.men` database from a different,
+more permissively-licensed set of sources; that database would carry
+whatever license its own source data allows. The restrictions above
+apply only to the specific compiled database on the `medical-database`
+release, because that one is built from these five sources.
+
+If you redistribute, deploy, or use that database, or a binary that
+embeds it, commercially, or modify the WHO ATC data it contains,
+complying with DDInter's and the WHO Collaborating Centre's respective
+terms is your responsibility. MenSung's maintainers ship this data under
+the terms each source grants; how a downstream party subsequently uses,
+redistributes, or violates those terms is between that party and the
+original source, not MenSung. This is the ordinary allocation of
 responsibility for any project that redistributes third-party data under
 its original license, and it is the same "as is, no warranty" principle
 already stated in LICENSE-MIT and LICENSE-APACHE for the code itself.

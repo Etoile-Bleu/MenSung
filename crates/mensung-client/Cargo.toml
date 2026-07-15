@@ -24,6 +24,7 @@ ratatui.workspace = true
 crossterm.workspace = true
 ureq.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 mensung-db = { path = "../mensung-db", features = ["test-support"] }

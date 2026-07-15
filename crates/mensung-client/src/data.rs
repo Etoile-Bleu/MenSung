@@ -1,11 +1,19 @@
 //! Locates, loads, and if needed installs the .men database at runtime.
 //! There is nothing embedded in the binary: `mensung` looks for
 //! `medical_database.men` next to its own executable (or under
-//! `MENSUNG_DATA_DIR` if set), and offers to download DDInter's dataset if
-//! it is missing. This means the shipped binary does carry network code,
-//! unlike the fully offline design described in earlier project notes; see
+//! `MENSUNG_DATA_DIR` if set), and offers to download a dataset if it is
+//! missing. This means the shipped binary does carry network code, unlike
+//! the fully offline design described in earlier project notes; see
 //! README.md's Security model section for the current, accurate statement
 //! of what this binary does and does not do over the network, and why.
+//!
+//! Two sources are tried, in order: `dataset_download.rs`'s pre-built,
+//! enriched database (DDInter + RxNorm + WHO ATC + PubChem + openFDA,
+//! downloaded as a single file, no per-drug API calls) first, since it is
+//! both richer and faster to install; then, only if that fails, a bare
+//! DDInter-only database built live from CSVs, the original install path.
+//! A field deployment with only intermittent connectivity to GitHub still
+//! ends up with a usable database either way.
 
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -27,7 +35,7 @@ pub(crate) fn database_path() -> PathBuf {
 /// Returns the compiled database bytes, installing them first if no
 /// database is present at `path` yet. Never touches the network unless the
 /// user explicitly agrees, either interactively or via
-/// `MENSUNG_DOWNLOAD_DDINTER=1`.
+/// `MENSUNG_DOWNLOAD_DATASET=1`.
 pub(crate) fn load_or_install(path: &Path) -> Result<Vec<u8>, String> {
     if path.is_file() {
         return std::fs::read(path)
@@ -36,13 +44,13 @@ pub(crate) fn load_or_install(path: &Path) -> Result<Vec<u8>, String> {
 
     eprintln!("No medication database found at {}.", path.display());
     eprintln!(
-        "You can place a compiled medical_database.men there yourself, or let mensung install DDInter's dataset now."
+        "You can place a compiled medical_database.men there yourself, or let mensung install a dataset now."
     );
 
     if !should_install() {
         return Err(format!(
             "No database installed at {}. Nothing to look up.\n\
-             Run again and answer \"y\", set MENSUNG_DOWNLOAD_DDINTER=1, or place the file manually.",
+             Run again and answer \"y\", set MENSUNG_DOWNLOAD_DATASET=1, or place the file manually.",
             path.display()
         ));
     }
@@ -51,7 +59,7 @@ pub(crate) fn load_or_install(path: &Path) -> Result<Vec<u8>, String> {
 }
 
 fn should_install() -> bool {
-    match std::env::var("MENSUNG_DOWNLOAD_DDINTER").as_deref() {
+    match std::env::var("MENSUNG_DOWNLOAD_DATASET").as_deref() {
         Ok("1") | Ok("true") | Ok("yes") => return true,
         Ok("0") | Ok("false") | Ok("no") => return false,
         _ => {}
@@ -59,7 +67,7 @@ fn should_install() -> bool {
 
     if !std::io::stdin().is_terminal() {
         eprintln!(
-            "Not an interactive terminal; set MENSUNG_DOWNLOAD_DDINTER=1 to install without prompting."
+            "Not an interactive terminal; set MENSUNG_DOWNLOAD_DATASET=1 to install without prompting."
         );
         return false;
     }
@@ -79,6 +87,26 @@ fn confirm_interactively() -> bool {
 }
 
 fn install(path: &Path) -> Result<Vec<u8>, String> {
+    eprintln!("Downloading MenSung's enriched dataset (DDInter + RxNorm + WHO ATC + PubChem + openFDA)...");
+
+    match crate::dataset_download::fetch() {
+        Ok(bytes) => {
+            write_database(path, &bytes)?;
+            eprintln!("Installed the enriched dataset to {}.", path.display());
+            return Ok(bytes);
+        }
+        Err(err) => {
+            eprintln!(
+                "Could not download the enriched dataset ({err}); falling back to a \
+                 DDInter-only build..."
+            );
+        }
+    }
+
+    install_ddinter_only(path)
+}
+
+fn install_ddinter_only(path: &Path) -> Result<Vec<u8>, String> {
     eprintln!("Downloading DDInter's dataset (CC BY-NC-SA 4.0, see MEDICAL_DATA_POLICY.md)...");
 
     let download_dir = std::env::temp_dir().join("mensung-ddinter-download");
@@ -89,12 +117,7 @@ fn install(path: &Path) -> Result<Vec<u8>, String> {
     let (bytes, report) = mensung_builder::build_database(drugs, interactions, Vec::new())
         .map_err(|err| format!("Fatal: could not compile the downloaded dataset: {err}"))?;
 
-    std::fs::write(path, &bytes).map_err(|err| {
-        format!(
-            "Fatal: could not save the database to {}: {err}",
-            path.display()
-        )
-    })?;
+    write_database(path, &bytes)?;
 
     eprintln!(
         "Installed {} interactions to {}.",
@@ -103,4 +126,13 @@ fn install(path: &Path) -> Result<Vec<u8>, String> {
     );
 
     Ok(bytes)
+}
+
+fn write_database(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    std::fs::write(path, bytes).map_err(|err| {
+        format!(
+            "Fatal: could not save the database to {}: {err}",
+            path.display()
+        )
+    })
 }
