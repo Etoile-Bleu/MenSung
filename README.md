@@ -24,9 +24,9 @@ not need connectivity for the lookups themselves.
 Every actual drug lookup is fully offline: once the database is on the
 machine, MenSung never touches the network to answer a query. Getting the
 database onto the machine is the one exception. That happens once, either
-by running `mensung` somewhere with connectivity and letting it install
-DDInter's dataset, or by copying a pre-built `medical_database.men` file
-onto the machine by hand (USB stick, local network, however it gets there).
+by running `mensung` somewhere with connectivity and letting it install a
+dataset, or by copying a pre-built `medical_database.men` file onto the
+machine by hand (USB stick, local network, however it gets there).
 After that one-time step, the binary and its database file can be copied
 anywhere, including a machine that will never see a network connection
 again. See [Security model](#security-model) for exactly what the binary
@@ -127,9 +127,11 @@ model](#security-model) for the network implications of that.
 | Binary size | < 10MB |
 
 The installed database is separate from the binary and is not held to the
-10MB figure, though in practice it now fits comfortably under it: the
-full DDInter dataset compiles to about 9.3MB under the `.men` format v2
-shared string table (down from format v1's roughly 28MB). See
+10MB figure. A bare DDInter-only build compiles to about 9.3MB under the
+`.men` format v2 shared string table (down from format v1's roughly
+28MB); the enriched database `mensung` installs by default (DDInter +
+RxNorm + WHO ATC + PubChem + openFDA, see [Usage](#usage)) is larger,
+about 27MB, since it also carries the openFDA drug facts text. See
 ROADMAP.md Phase 5's known tradeoff note and Phase 8b.
 
 ## Installation
@@ -137,29 +139,36 @@ ROADMAP.md Phase 5's known tradeoff note and Phase 8b.
 Download the binary for your platform from the
 [latest release](https://github.com/Etoile-Bleu/MenSung/releases/latest).
 Running it looks for `medical_database.men` next to itself; if that file is
-not there yet, it offers to install DDInter's dataset, which needs a
-network connection for that one step. See [Usage](#usage).
+not there yet, it offers to install a dataset, which needs a network
+connection for that one step. See [Usage](#usage).
 
 ## Usage
 
 The first time `mensung` runs and finds no `medical_database.men` next to
 itself, it says so and, in an interactive terminal, asks whether to install
-DDInter's dataset now:
+a dataset now:
 
 ```
 No medication database found at /path/to/medical_database.men.
-You can place a compiled medical_database.men there yourself, or let mensung install DDInter's dataset now.
+You can place a compiled medical_database.men there yourself, or let mensung install a dataset now.
 Would you like to install the dataset now? [y/N]
 ```
 
-Answering yes downloads DDInter's public CSV export over HTTPS (TLS
-certificate validation is never disabled) and compiles it locally; this is
-the only time `mensung` touches the network, and only with this explicit
-confirmation. In a non-interactive shell, set `MENSUNG_DOWNLOAD_DDINTER=1`
-to skip the prompt, or place a pre-built `medical_database.men` next to the
-binary yourself (or point `MENSUNG_DATA_DIR` at wherever you keep it) and
-`mensung` never needs to ask. Once installed, every lookup is fully offline
-again; nothing about answering questions touches the network.
+Answering yes downloads MenSung's pre-built, enriched database (DDInter +
+RxNorm + WHO ATC + PubChem + openFDA, see MEDICAL_DATA_POLICY.md) from this
+project's `medical-database` GitHub Release over HTTPS (TLS certificate
+validation is never disabled) and saves it directly; no per-drug API calls,
+no local build step. If that download fails for any reason (no route to
+GitHub, a corrupt transfer), `mensung` falls back to downloading DDInter's
+own public CSV export and compiling a bare DDInter-only database locally
+instead, so a field deployment with only partial connectivity still ends up
+with a usable database. Either way, this is the only time `mensung` touches
+the network, and only with this explicit confirmation. In a non-interactive
+shell, set `MENSUNG_DOWNLOAD_DATASET=1` to skip the prompt, or place a
+pre-built `medical_database.men` next to the binary yourself (or point
+`MENSUNG_DATA_DIR` at wherever you keep it) and `mensung` never needs to
+ask. Once installed, every lookup is fully offline again; nothing about
+answering questions touches the network.
 
 Run `mensung` with no arguments for the interactive terminal interface: two
 input fields, Tab to switch between them, Enter to check, F1 to show the
@@ -264,15 +273,17 @@ stores patient information. It does contain network code, unlike earlier
 drafts of this project, in exactly two places, both explicit and neither
 automatic:
 
-- **Dataset install.** `mensung-builder`'s downloader, called from
-  `mensung-client`, fetches DDInter's public CSV export over HTTPS when a
-  database is not yet installed and the user explicitly agrees, either by
-  answering the interactive prompt or by setting
-  `MENSUNG_DOWNLOAD_DDINTER=1` ahead of time. It fetches from
-  `ddinter.scbdd.com` first, and only from one other host: this project's
-  own GitHub Releases, as a fallback mirror of the exact same files, used
-  when DDInter's own TLS certificate cannot be validated (true as of this
-  writing; see MEDICAL_DATA_POLICY.md). Nothing else.
+- **Dataset install.** `mensung-client`'s `dataset_download.rs`, called
+  when a database is not yet installed and the user explicitly agrees,
+  either by answering the interactive prompt or by setting
+  `MENSUNG_DOWNLOAD_DATASET=1` ahead of time, fetches the pre-built,
+  enriched database from this project's own `medical-database` GitHub
+  Release. If that fails, `mensung-builder`'s downloader fetches DDInter's
+  public CSV export over HTTPS instead, from `ddinter.scbdd.com` first and
+  this project's own GitHub Releases second, as a fallback mirror of the
+  exact same files, used when DDInter's own TLS certificate cannot be
+  validated (true as of this writing; see MEDICAL_DATA_POLICY.md). Nothing
+  else.
 - **`mensung check-update`.** Fetches this project's latest release
   metadata from `api.github.com` when, and only when, the user runs that
   exact command. It never runs at startup or anywhere else, and it never

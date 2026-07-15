@@ -184,7 +184,7 @@ jobs:
           # which would make a release gate flaky against a third-party
           # site's uptime.
           set +e
-          MENSUNG_DOWNLOAD_DDINTER=0 bin/mensung-linux-x86_64 Aspirin Warfarin < /dev/null > out.txt 2>&1
+          MENSUNG_DOWNLOAD_DATASET=0 bin/mensung-linux-x86_64 Aspirin Warfarin < /dev/null > out.txt 2>&1
           status=$?
           set -e
           [ "$status" -eq 70 ] || { echo "expected exit code 70, got $status"; cat out.txt; exit 1; }
