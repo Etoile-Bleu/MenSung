@@ -24,11 +24,13 @@
 //! job, not this module's: this module either returns a verified database
 //! or an error, nothing in between.
 
-use std::io::Read as _;
+use std::io::{IsTerminal as _, Read as _, Write as _};
 
 const RELEASE_TAG_URL: &str =
     "https://api.github.com/repos/Etoile-Bleu/MenSung/releases/tags/medical-database";
 const ASSET_NAME: &str = "medical_database.men";
+const PROGRESS_BAR_WIDTH: usize = 24;
+const DOWNLOAD_CHUNK_SIZE: usize = 64 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum DatasetDownloadError {
@@ -99,24 +101,87 @@ fn download_asset(url: &str) -> Result<Vec<u8>, DatasetDownloadError> {
         .call()
         .map_err(|err| DatasetDownloadError::AssetRequest(Box::new(err)))?;
 
+    let total = response.body().content_length();
+    let show_progress = std::io::stderr().is_terminal();
+
     let mut bytes = Vec::new();
-    response
-        .body_mut()
-        .as_reader()
-        .read_to_end(&mut bytes)
-        .map_err(DatasetDownloadError::AssetBody)?;
+    let mut chunk = vec![0u8; DOWNLOAD_CHUNK_SIZE];
+    let mut reader = response.body_mut().as_reader();
+
+    loop {
+        let read = reader
+            .read(&mut chunk)
+            .map_err(DatasetDownloadError::AssetBody)?;
+        if read == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk[..read]);
+        if show_progress {
+            eprint!("\r{}", render_progress(bytes.len() as u64, total));
+            let _ = std::io::stderr().flush();
+        }
+    }
+    if show_progress {
+        eprintln!();
+    }
 
     Ok(bytes)
 }
 
-// Hits the real GitHub API and downloads the real, currently-published
-// dataset, so this is `#[ignore]`d by default and excluded from
-// `cargo test --workspace`, the same convention every other live-network
-// test in this workspace follows. Run explicitly with
-// `cargo test -p mensung-client --bin mensung dataset_download -- --ignored`.
+fn render_progress(done: u64, total: Option<u64>) -> String {
+    let done_mb = done as f64 / (1024.0 * 1024.0);
+    match total.filter(|total| *total > 0) {
+        Some(total) => {
+            let fraction = (done as f64 / total as f64).min(1.0);
+            let filled = (fraction * PROGRESS_BAR_WIDTH as f64).round() as usize;
+            let bar = "#".repeat(filled) + &"-".repeat(PROGRESS_BAR_WIDTH - filled);
+            let total_mb = total as f64 / (1024.0 * 1024.0);
+            format!(
+                "  [{bar}] {:5.1}% ({done_mb:.1}/{total_mb:.1} MB)",
+                fraction * 100.0
+            )
+        }
+        None => format!("  {done_mb:.1} MB downloaded"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renders_a_full_bar_at_zero_percent() {
+        let line = render_progress(0, Some(24 * 1024 * 1024));
+        assert!(line.contains("------------------------"));
+        assert!(line.contains("0.0%"));
+    }
+
+    #[test]
+    fn renders_a_half_filled_bar_at_fifty_percent() {
+        let total = 24 * 1024 * 1024;
+        let line = render_progress(total / 2, Some(total));
+        assert!(line.contains("50.0%"));
+    }
+
+    #[test]
+    fn renders_a_full_bar_at_completion() {
+        let total = 24 * 1024 * 1024;
+        let line = render_progress(total, Some(total));
+        assert!(line.contains("100.0%"));
+    }
+
+    #[test]
+    fn caps_progress_at_a_hundred_percent_even_if_more_bytes_arrive_than_advertised() {
+        let line = render_progress(200, Some(100));
+        assert!(line.contains("100.0%"));
+    }
+
+    #[test]
+    fn falls_back_to_a_plain_byte_count_with_no_content_length() {
+        let line = render_progress(2 * 1024 * 1024, None);
+        assert!(!line.contains('%'));
+        assert!(line.contains("2.0 MB"));
+    }
 
     #[test]
     #[ignore = "hits the live GitHub API and downloads the real dataset"]

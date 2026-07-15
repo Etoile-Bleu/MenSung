@@ -14,13 +14,44 @@
 //! 2 bad command-line usage; 70 an internal or database error, the same
 //! convention as the Unix EX_SOFTWARE sysexit.
 
+use std::io::IsTerminal as _;
 use std::process::ExitCode;
 
+use crossterm::style::Stylize;
 use mensung_core::{check_interactions, lookup_drug, CoreError, LookupOutcome};
 use mensung_db::{Database, DbError, DrugRecord};
-use mensung_domain::DrugId;
+use mensung_domain::{DrugId, Severity};
 
 use crate::DISCLAIMER;
+
+#[derive(Clone, Copy)]
+enum Tone {
+    Danger,
+    Warning,
+    Ok,
+    Dim,
+    Bold,
+}
+
+fn styled(text: &str, tone: Tone) -> String {
+    if !std::io::stdout().is_terminal() {
+        return text.to_string();
+    }
+    match tone {
+        Tone::Danger => text.red().bold().to_string(),
+        Tone::Warning => text.yellow().to_string(),
+        Tone::Ok => text.green().to_string(),
+        Tone::Dim => text.dark_grey().to_string(),
+        Tone::Bold => text.bold().to_string(),
+    }
+}
+
+fn severity_tone(severity: Severity) -> Tone {
+    match severity {
+        Severity::Contraindicated | Severity::HighRisk => Tone::Danger,
+        Severity::Moderate | Severity::Minor | Severity::Unknown => Tone::Warning,
+    }
+}
 
 pub(crate) fn run(db: &Database, args: &[String]) -> ExitCode {
     if args.len() < 2 {
@@ -47,7 +78,13 @@ pub(crate) fn run(db: &Database, args: &[String]) -> ExitCode {
 
     if interactions.is_empty() {
         let names: Vec<&str> = resolved.iter().map(DrugRecord::name).collect();
-        println!("No known interaction among: {}", names.join(", "));
+        println!(
+            "{}",
+            styled(
+                &format!("No known interaction among: {}", names.join(", ")),
+                Tone::Ok
+            )
+        );
         println!("\n{DISCLAIMER}");
         return ExitCode::SUCCESS;
     }
@@ -61,15 +98,32 @@ pub(crate) fn run(db: &Database, args: &[String]) -> ExitCode {
                 .map(DrugRecord::name)
                 .expect("every id in this interaction came from resolved")
         };
+        let severity = interaction.severity();
+        let tone = severity_tone(severity);
 
-        println!("!!! {} INTERACTION !!!\n", interaction.severity());
-        println!("{} + {}\n", name_of(lower), name_of(higher));
-        println!("Severity:\n{}\n", interaction.severity());
+        println!(
+            "{}\n",
+            styled(&format!("!!! {severity} INTERACTION !!!"), tone)
+        );
+        println!(
+            "{}\n",
+            styled(
+                &format!("{} + {}", name_of(lower), name_of(higher)),
+                Tone::Bold
+            )
+        );
+        println!("Severity:\n{}\n", styled(&severity.to_string(), tone));
         println!("Risk:\n{}\n", interaction.description());
         println!(
-            "Evidence: {} ({})\n",
-            interaction.evidence(),
-            interaction.source()
+            "{}\n",
+            styled(
+                &format!(
+                    "Evidence: {} ({})",
+                    interaction.evidence(),
+                    interaction.source()
+                ),
+                Tone::Dim
+            )
         );
 
         let primary = interaction.primary_claim();
@@ -79,13 +133,19 @@ pub(crate) fn run(db: &Database, args: &[String]) -> ExitCode {
             .filter(|claim| **claim != primary)
             .collect();
         if !other_claims.is_empty() {
-            println!("Also reported by:");
+            println!("{}", styled("Also reported by:", Tone::Dim));
             for claim in other_claims {
                 println!(
-                    "  {} -- {}: {}",
-                    claim.source_name(),
-                    claim.severity(),
-                    claim.rationale()
+                    "{}",
+                    styled(
+                        &format!(
+                            "  {} -- {}: {}",
+                            claim.source_name(),
+                            claim.severity(),
+                            claim.rationale()
+                        ),
+                        Tone::Dim
+                    )
                 );
             }
             println!();
@@ -114,7 +174,7 @@ pub(crate) fn info(db: &Database, args: &[String]) -> ExitCode {
     };
     let drug = &resolved[0];
 
-    println!("{}\n", drug.name());
+    println!("{}\n", styled(drug.name(), Tone::Bold));
 
     let atc_codes: Result<Vec<_>, DbError> = drug.atc_codes().collect();
     let atc_codes = match atc_codes {
@@ -124,22 +184,29 @@ pub(crate) fn info(db: &Database, args: &[String]) -> ExitCode {
 
     let mut has_reference_data = false;
     if let Some(rxcui) = drug.rxcui() {
-        println!("RxCUI: {rxcui}");
+        println!("{}", styled(&format!("RxCUI: {rxcui}"), Tone::Dim));
         has_reference_data = true;
     }
     for atc in &atc_codes {
-        println!("ATC: {} ({})", atc.code(), atc.class_name());
+        println!(
+            "{}",
+            styled(
+                &format!("ATC: {} ({})", atc.code(), atc.class_name()),
+                Tone::Dim
+            )
+        );
         has_reference_data = true;
     }
     if let Some(formula) = drug.molecular_formula() {
-        match drug.molecular_weight() {
-            Some(weight) => println!("Chemical: {formula}, {weight} g/mol"),
-            None => println!("Chemical: {formula}"),
-        }
+        let line = match drug.molecular_weight() {
+            Some(weight) => format!("Chemical: {formula}, {weight} g/mol"),
+            None => format!("Chemical: {formula}"),
+        };
+        println!("{}", styled(&line, Tone::Dim));
         has_reference_data = true;
     }
     if let Some(iupac) = drug.iupac_name() {
-        println!("IUPAC name: {iupac}");
+        println!("{}", styled(&format!("IUPAC name: {iupac}"), Tone::Dim));
         has_reference_data = true;
     }
 
@@ -164,9 +231,22 @@ pub(crate) fn info(db: &Database, args: &[String]) -> ExitCode {
             if index > 0 {
                 println!();
             }
-            println!("{} ({})", fact.kind(), fact.severity());
+            let severity = fact.severity();
+            println!(
+                "{}",
+                styled(
+                    &format!("{} ({})", fact.kind(), severity),
+                    severity_tone(severity)
+                )
+            );
             println!("{}", fact.rationale());
-            println!("Evidence: {} ({})", fact.evidence(), fact.source());
+            println!(
+                "{}",
+                styled(
+                    &format!("Evidence: {} ({})", fact.evidence(), fact.source()),
+                    Tone::Dim
+                )
+            );
 
             let primary = fact.primary_claim();
             let other_claims: Vec<_> = fact
@@ -175,13 +255,19 @@ pub(crate) fn info(db: &Database, args: &[String]) -> ExitCode {
                 .filter(|claim| **claim != primary)
                 .collect();
             if !other_claims.is_empty() {
-                println!("Also reported by:");
+                println!("{}", styled("Also reported by:", Tone::Dim));
                 for claim in other_claims {
                     println!(
-                        "  {} -- {}: {}",
-                        claim.source_name(),
-                        claim.severity(),
-                        claim.rationale()
+                        "{}",
+                        styled(
+                            &format!(
+                                "  {} -- {}: {}",
+                                claim.source_name(),
+                                claim.severity(),
+                                claim.rationale()
+                            ),
+                            Tone::Dim
+                        )
                     );
                 }
             }

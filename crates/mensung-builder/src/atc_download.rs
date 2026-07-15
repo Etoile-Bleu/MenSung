@@ -10,6 +10,15 @@
 //! (see `atc.rs`'s header for why), it needs a drug's `Rxcui` as input,
 //! not just its name: this only runs on drugs the RxNorm lookup already
 //! resolved.
+//!
+//! Every function in this file makes a real HTTPS request, so its tests
+//! are `#[ignore]`d by default and excluded from `cargo test --workspace`,
+//! the same convention every other live-network test in this workspace
+//! follows. Run them explicitly with `cargo test -p mensung-builder --lib
+//! atc_download -- --ignored`. `atc.rs`'s own tests cover the parsing and
+//! filtering logic that consumes the response bodies these functions
+//! return, using real captured responses as fixtures, and do not touch
+//! the network.
 
 use std::io::Read as _;
 use std::thread;
@@ -95,15 +104,6 @@ pub fn fetch_all(
     Ok(results)
 }
 
-// Every function in this file makes a real HTTPS request, and a test
-// suite that depends on an external service being up on every run is a
-// flaky test suite, so these are `#[ignore]`d by default and excluded
-// from `cargo test --workspace`. Run them explicitly with
-// `cargo test -p mensung-builder --lib atc_download -- --ignored` when
-// verifying this module against the live API by hand. `atc.rs`'s tests
-// cover the parsing and filtering logic that consumes the response
-// bodies these functions return, using real captured responses as
-// fixtures, and do not touch the network.
 #[cfg(test)]
 mod tests {
     use super::*;

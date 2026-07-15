@@ -1,8 +1,12 @@
 //! Application state and the state machine that drives the interactive
 //! interface: two drug input fields, a confirmation step for any non-exact
-//! match, a results screen, and a single-drug info screen (F1 on the
-//! focused field). There is no path from typed text to a result that
-//! skips the confirmation step, per the no-silent-correction rule in
+//! match, a results screen, and a single-drug info screen (Alt+I on the
+//! focused field). Alt+I, not a bare `i` or F1: a bare letter would collide
+//! with typing a drug name into the focused field, and F1 is unreliable as
+//! an application hotkey since terminal emulators and the host OS both
+//! commonly intercept it for their own help screen before the app ever
+//! sees it. There is no path from typed text to a result that skips the
+//! confirmation step, per the no-silent-correction rule in
 //! MEDICAL_DATA_POLICY.md; that applies identically whether the lookup is
 //! for an interaction check or for `LookupPurpose::ShowInfo`.
 
@@ -108,9 +112,11 @@ impl<'a> App<'a> {
             KeyCode::Backspace => {
                 self.inputs[self.focused].pop();
             }
+            KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.show_drug_info()
+            }
             KeyCode::Char(c) => self.inputs[self.focused].push(c),
             KeyCode::Enter => self.submit(),
-            KeyCode::F(1) => self.show_drug_info(),
             _ => {}
         }
     }
@@ -262,6 +268,10 @@ mod tests {
 
     fn ctrl_c() -> KeyEvent {
         KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)
+    }
+
+    fn alt_i() -> KeyEvent {
+        KeyEvent::new(KeyCode::Char('i'), KeyModifiers::ALT)
     }
 
     fn type_str(app: &mut App, text: &str) {
@@ -508,7 +518,7 @@ mod tests {
         let bytes = test_bytes();
         let db = Database::open(&bytes).unwrap();
         let mut app = App::new(&db);
-        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(alt_i());
         assert!(matches!(app.screen(), Screen::Input));
     }
 
@@ -518,7 +528,7 @@ mod tests {
         let db = Database::open(&bytes).unwrap();
         let mut app = App::new(&db);
         type_str(&mut app, "Warfarin");
-        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(alt_i());
 
         match app.screen() {
             Screen::DrugInfo { drug, facts } => {
@@ -537,7 +547,7 @@ mod tests {
         let db = Database::open(&bytes).unwrap();
         let mut app = App::new(&db);
         type_str(&mut app, "Warfarn");
-        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(alt_i());
 
         match app.screen() {
             Screen::Candidates {
@@ -560,7 +570,7 @@ mod tests {
         let db = Database::open(&bytes).unwrap();
         let mut app = App::new(&db);
         type_str(&mut app, "Warfarn");
-        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(alt_i());
         app.handle_key(key(KeyCode::Enter));
 
         assert_eq!(app.inputs()[0], "Warfarin");
@@ -576,7 +586,7 @@ mod tests {
         let db = Database::open(&bytes).unwrap();
         let mut app = App::new(&db);
         type_str(&mut app, "Aspirin");
-        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(alt_i());
 
         match app.screen() {
             Screen::DrugInfo { drug, facts } => {
@@ -594,7 +604,7 @@ mod tests {
         let db = Database::open(&bytes).unwrap();
         let mut app = App::new(&db);
         type_str(&mut app, "Warfarin");
-        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(alt_i());
         app.handle_key(key(KeyCode::Enter));
 
         assert!(matches!(app.screen(), Screen::Input));
@@ -607,7 +617,7 @@ mod tests {
         let db = Database::open(&bytes).unwrap();
         let mut app = App::new(&db);
         type_str(&mut app, "Warfarin");
-        app.handle_key(key(KeyCode::F(1)));
+        app.handle_key(alt_i());
         app.handle_key(key(KeyCode::Enter));
 
         type_str(&mut app, "Aspirin");

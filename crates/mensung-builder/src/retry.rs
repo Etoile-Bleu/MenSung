@@ -63,14 +63,12 @@ mod tests {
     use super::*;
     use std::cell::Cell;
 
-    // A near-zero backoff so these tests exercise the real retry loop
-    // without actually waiting out the multi-second production delays.
-    const NO_DELAY: Duration = Duration::from_millis(1);
+    const NEGLIGIBLE_TEST_BACKOFF: Duration = Duration::from_millis(1);
 
     #[test]
     fn returns_the_first_ok_without_retrying() {
         let calls = Cell::new(0);
-        let result = with_retry_from("test", NO_DELAY, || {
+        let result = with_retry_from("test", NEGLIGIBLE_TEST_BACKOFF, || {
             calls.set(calls.get() + 1);
             Ok::<_, &str>("value")
         });
@@ -81,7 +79,7 @@ mod tests {
     #[test]
     fn retries_after_a_transient_failure_and_then_succeeds() {
         let calls = Cell::new(0);
-        let result = with_retry_from("test", NO_DELAY, || {
+        let result = with_retry_from("test", NEGLIGIBLE_TEST_BACKOFF, || {
             calls.set(calls.get() + 1);
             if calls.get() < 3 {
                 Err("transient")
@@ -96,7 +94,7 @@ mod tests {
     #[test]
     fn gives_up_after_max_attempts_and_returns_the_last_error() {
         let calls = Cell::new(0);
-        let result = with_retry_from("test", NO_DELAY, || {
+        let result = with_retry_from("test", NEGLIGIBLE_TEST_BACKOFF, || {
             calls.set(calls.get() + 1);
             Err::<&str, _>(format!("failure #{}", calls.get()))
         });
