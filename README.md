@@ -1,13 +1,59 @@
-# MenSung
+<h1 align="center">MenSung</h1>
 
-**Medical Shield.** An offline medication interaction checker for doctors,
-nurses, and humanitarian medical workers operating without internet access.
+<p align="center">
+  <strong>Medical Shield.</strong><br>
+  An offline medication interaction checker for doctors, nurses, and humanitarian
+  medical workers operating without internet access.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/Etoile-Bleu/MenSung/ci.yml?branch=main&label=CI&style=flat-square" alt="CI status">
+  <img src="https://img.shields.io/github/v/release/Etoile-Bleu/MenSung?style=flat-square&label=release" alt="Latest release">
+  <img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue?style=flat-square" alt="MIT/Apache-2.0 license">
+  <img src="https://img.shields.io/badge/platforms-linux%20%7C%20windows%20%7C%20macos-lightgrey?style=flat-square" alt="Platforms">
+  <a href="https://dev.to/etoile_bleu/checking-drug-interactions-in-places-where-the-internet-barely-exists-2om1"><img src="https://img.shields.io/badge/dev.to-read%20the%20article-0A0A0A?style=flat-square&logo=devdotto" alt="Read the article on dev.to"></a>
+</p>
+
+---
 
 > **MEDICAL DISCLAIMER**
 >
 > This software is an offline informational aid. It does not replace
 > professional medical judgement, clinical protocols, or qualified healthcare
 > decisions. Always use professional clinical judgement.
+
+---
+
+<!-- Regenerate: vhs docs/demos/warfarin.tape (needs vhs, ttyd, and a headless Chrome/Chromium in PATH; run from a directory with the mensung binary and medical_database.men next to it) -->
+![MenSung CLI demo](docs/demos/warfarin.gif)
+
+## One binary. One database file. Zero network at lookup time.
+
+```bash
+mensung 'Acetylsalicylic acid' Warfarin
+```
+
+```
+!!! CONTRAINDICATED INTERACTION !!!
+
+Acetylsalicylic acid + Warfarin
+
+Severity:
+CONTRAINDICATED
+
+Risk:
+DDInter classifies this as a major interaction. Treat with the same urgency
+as a contraindication: verify management guidance before co-administering.
+
+Evidence: Established (DDInter (http://ddinter.scbdd.com/))
+
+This software is an offline informational assistant.
+Always use professional clinical judgement.
+```
+
+No server, no cloud, no GPU, no database service. Runs on a 10-15 year old
+laptop with an Intel Core 2 Duo or early i3-class CPU, 2-4GB of RAM, and a
+slow HDD.
 
 ---
 
@@ -26,44 +72,36 @@ machine, MenSung never touches the network to answer a query. Getting the
 database onto the machine is the one exception. That happens once, either
 by running `mensung` somewhere with connectivity and letting it install a
 dataset, or by copying a pre-built `medical_database.men` file onto the
-machine by hand (USB stick, local network, however it gets there).
-After that one-time step, the binary and its database file can be copied
+machine by hand (USB stick, local network, however it gets there). After
+that one-time step, the binary and its database file can be copied
 anywhere, including a machine that will never see a network connection
 again. See [Security model](#security-model) for exactly what the binary
 does and does not do over the network.
 
-MenSung will run on a 10-15 year old laptop with an Intel Core 2 Duo or early
-i3-class CPU, 2-4GB of RAM, and a slow HDD, with no GPU, no cloud service,
-and no database server.
+> Want the full story behind why this exists and how the data pipeline
+> works? [Read the deep-dive article on dev.to.](https://dev.to/etoile_bleu/checking-drug-interactions-in-places-where-the-internet-barely-exists-2om1)
 
-## What it does
+---
 
-A worker enters two (or more) drug names, using International Nonproprietary
-Names (INN) only, no brand names. MenSung looks them up against its locally
-installed binary database and reports every known interaction, ranked by
-severity.
+## Features
 
-```
-$ mensung Aspirin Warfarin
+| Category | Feature |
+|---|---|
+| **Core** | Two-or-more-drug interaction lookup, ranked most severe first |
+| **Safety** | Zero false negative policy -- an interaction in the data is always shown |
+| **Safety** | No silent correction -- an inexact name shows ranked candidates and waits for confirmation, never guesses |
+| **Data** | DDInter interactions enriched with RxNorm, WHO ATC, PubChem, and openFDA drug facts |
+| **Format** | Custom `.men` binary format: zero-copy reads, shared string table, SHA-256 payload checksum verified on every open |
+| **Interfaces** | Scriptable CLI (`mensung <drug-1> <drug-2> ...`) and a full interactive TUI |
+| **TUI** | Colorized severity (red/yellow/green), text wrapping, Up/Down/PageUp/PageDown scroll, Alt+I for single-drug info |
+| **Install** | Downloads the pre-built enriched database on first run, with an automatic fallback to a bare DDInter-only build if that fails |
+| **Platforms** | Static musl binary on Linux, plus Windows and macOS builds |
+| **Performance** | Startup under 100ms, lookup under 5ms, binary under 10MB |
 
-!!! CONTRAINDICATED INTERACTION !!!
+---
 
-Aspirin + Warfarin
-
-Severity:
-CONTRAINDICATED
-
-Risk:
-Increased bleeding and hemorrhage probability.
-
-Evidence: Established (...)
-
-This software is an offline informational assistant.
-Always use professional clinical judgement.
-```
-
-This is real, working CLI output, not a mockup, from a database installed
-as described in [Usage](#usage) below.
+<!-- Regenerate: vhs docs/demos/alt-i.tape (same requirements as above) -->
+![MenSung TUI demo, Alt+I drug info screen](docs/demos/alt-i.gif)
 
 Two rules shape every part of the design:
 
@@ -181,7 +219,8 @@ before the app sees it. A typed name with no exact match shows a ranked
 candidate list with a similarity score and waits for confirmation, the same
 for either Alt+I or Enter; it never guesses. Interactions and drug facts are
 shown red for contraindicated or high risk, yellow for moderate, minor, or
-unknown severity, green for no known interaction. Esc or Ctrl-C quits.
+unknown severity, green for no known interaction. Long text wraps inside its
+box and scrolls with Up/Down/PageUp/PageDown. Esc or Ctrl-C quits.
 
 ```bash
 mensung <drug-1> <drug-2> [<drug-3> ...]
@@ -218,8 +257,8 @@ boxed warnings, or similar facts, instead of an interaction between two
 drugs. Exit codes: `0` the drug resolved (whether or not it has any facts
 or cross-reference data), `1` the name could not be resolved, `2` bad
 command-line usage, `70` an internal or database error. Nothing in the
-DDInter-only dataset `mensung` installs by default populates this data yet;
-see [ROADMAP.md](ROADMAP.md)'s Phase 8b and the builder CLI
+DDInter-only dataset `mensung` falls back to populates this data yet; see
+[ROADMAP.md](ROADMAP.md)'s Phase 8b and the builder CLI
 (`mensung-builder build --out <path>`) for how a richer database gets
 built.
 
@@ -325,3 +364,7 @@ Dual-licensed under either of:
 - [Apache License, Version 2.0](LICENSE-APACHE)
 
 at your option.
+
+---
+
+See [ROADMAP.md](ROADMAP.md) for completed phases and planned work.
