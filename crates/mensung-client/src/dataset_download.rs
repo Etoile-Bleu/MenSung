@@ -26,6 +26,8 @@
 
 use std::io::{IsTerminal as _, Read as _, Write as _};
 
+use crate::style::{styled_err as styled, Tone};
+
 const RELEASE_TAG_URL: &str =
     "https://api.github.com/repos/Etoile-Bleu/MenSung/releases/tags/medical-database";
 const ASSET_NAME: &str = "medical_database.men";
@@ -117,7 +119,10 @@ fn download_asset(url: &str) -> Result<Vec<u8>, DatasetDownloadError> {
         }
         bytes.extend_from_slice(&chunk[..read]);
         if show_progress {
-            eprint!("\r{}", render_progress(bytes.len() as u64, total));
+            eprint!(
+                "\r{}",
+                styled(&render_progress(bytes.len() as u64, total), Tone::Ok)
+            );
             let _ = std::io::stderr().flush();
         }
     }

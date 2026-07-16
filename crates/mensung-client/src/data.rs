@@ -18,6 +18,8 @@
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
+use crate::style::{styled_err as styled, Tone};
+
 pub(crate) fn database_path() -> PathBuf {
     let dir = std::env::var("MENSUNG_DATA_DIR")
         .map(PathBuf::from)
@@ -42,7 +44,13 @@ pub(crate) fn load_or_install(path: &Path) -> Result<Vec<u8>, String> {
             .map_err(|err| format!("Fatal: could not read {}: {err}", path.display()));
     }
 
-    eprintln!("No medication database found at {}.", path.display());
+    eprintln!(
+        "{}",
+        styled(
+            &format!("No medication database found at {}.", path.display()),
+            Tone::Warning
+        )
+    );
     eprintln!(
         "You can place a compiled medical_database.men there yourself, or let mensung install a dataset now."
     );
@@ -76,7 +84,13 @@ fn should_install() -> bool {
 }
 
 fn confirm_interactively() -> bool {
-    eprint!("Would you like to install the dataset now? [y/N] ");
+    eprint!(
+        "{} ",
+        styled(
+            "Would you like to install the dataset now? [y/N]",
+            Tone::Bold
+        )
+    );
     let _ = std::io::stderr().flush();
 
     let mut answer = String::new();
@@ -87,18 +101,36 @@ fn confirm_interactively() -> bool {
 }
 
 fn install(path: &Path) -> Result<Vec<u8>, String> {
-    eprintln!("Downloading MenSung's enriched dataset (DDInter + RxNorm + WHO ATC + PubChem + openFDA)...");
+    eprintln!(
+        "{}",
+        styled(
+            "Downloading MenSung's enriched dataset (DDInter + RxNorm + WHO ATC + PubChem + openFDA)...",
+            Tone::Bold
+        )
+    );
 
     match crate::dataset_download::fetch() {
         Ok(bytes) => {
             write_database(path, &bytes)?;
-            eprintln!("Installed the enriched dataset to {}.", path.display());
+            eprintln!(
+                "{}",
+                styled(
+                    &format!("Installed the enriched dataset to {}.", path.display()),
+                    Tone::Ok
+                )
+            );
             return Ok(bytes);
         }
         Err(err) => {
             eprintln!(
-                "Could not download the enriched dataset ({err}); falling back to a \
-                 DDInter-only build..."
+                "{}",
+                styled(
+                    &format!(
+                        "Could not download the enriched dataset ({err}); falling back to a \
+                         DDInter-only build..."
+                    ),
+                    Tone::Warning
+                )
             );
         }
     }
@@ -107,7 +139,13 @@ fn install(path: &Path) -> Result<Vec<u8>, String> {
 }
 
 fn install_ddinter_only(path: &Path) -> Result<Vec<u8>, String> {
-    eprintln!("Downloading DDInter's dataset (CC BY-NC-SA 4.0, see MEDICAL_DATA_POLICY.md)...");
+    eprintln!(
+        "{}",
+        styled(
+            "Downloading DDInter's dataset (CC BY-NC-SA 4.0, see MEDICAL_DATA_POLICY.md)...",
+            Tone::Bold
+        )
+    );
 
     let download_dir = std::env::temp_dir().join("mensung-ddinter-download");
     let (drugs, interactions) = mensung_builder::download_and_import_ddinter(&download_dir)
@@ -120,9 +158,15 @@ fn install_ddinter_only(path: &Path) -> Result<Vec<u8>, String> {
     write_database(path, &bytes)?;
 
     eprintln!(
-        "Installed {} interactions to {}.",
-        report.interactions,
-        path.display()
+        "{}",
+        styled(
+            &format!(
+                "Installed {} interactions to {}.",
+                report.interactions,
+                path.display()
+            ),
+            Tone::Ok
+        )
     );
 
     Ok(bytes)
