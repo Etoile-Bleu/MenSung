@@ -18,6 +18,7 @@
 mod cli;
 mod data;
 mod dataset_download;
+mod style;
 mod tui;
 mod update;
 

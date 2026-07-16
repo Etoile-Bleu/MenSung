@@ -14,37 +14,14 @@
 //! 2 bad command-line usage; 70 an internal or database error, the same
 //! convention as the Unix EX_SOFTWARE sysexit.
 
-use std::io::IsTerminal as _;
 use std::process::ExitCode;
 
-use crossterm::style::Stylize;
 use mensung_core::{check_interactions, lookup_drug, CoreError, LookupOutcome};
 use mensung_db::{Database, DbError, DrugRecord};
 use mensung_domain::{DrugId, Severity};
 
+use crate::style::{styled_out as styled, Tone};
 use crate::DISCLAIMER;
-
-#[derive(Clone, Copy)]
-enum Tone {
-    Danger,
-    Warning,
-    Ok,
-    Dim,
-    Bold,
-}
-
-fn styled(text: &str, tone: Tone) -> String {
-    if !std::io::stdout().is_terminal() {
-        return text.to_string();
-    }
-    match tone {
-        Tone::Danger => text.red().bold().to_string(),
-        Tone::Warning => text.yellow().to_string(),
-        Tone::Ok => text.green().to_string(),
-        Tone::Dim => text.dark_grey().to_string(),
-        Tone::Bold => text.bold().to_string(),
-    }
-}
 
 fn severity_tone(severity: Severity) -> Tone {
     match severity {
