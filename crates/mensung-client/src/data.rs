@@ -86,7 +86,10 @@ fn should_install() -> bool {
 fn confirm_interactively() -> bool {
     eprint!(
         "{} ",
-        styled("Would you like to install the dataset now? [y/N]", Tone::Bold)
+        styled(
+            "Would you like to install the dataset now? [y/N]",
+            Tone::Bold
+        )
     );
     let _ = std::io::stderr().flush();
 
