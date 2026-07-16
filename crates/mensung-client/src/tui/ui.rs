@@ -6,7 +6,7 @@ use mensung_domain::Severity;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
 use ratatui::Frame;
 
 use super::app::{App, Screen};
@@ -14,7 +14,7 @@ use super::app::{App, Screen};
 const TITLE: &str = " MenSung -- offline medication interaction checker ";
 const HELP_INPUT: &str = "Tab/Up/Down: switch field  Enter: check  Alt+I: drug info  Esc: quit";
 const HELP_CANDIDATES: &str = "Up/Down: select  Enter: confirm  Esc: back";
-const HELP_DISMISS: &str = "Enter/Esc: back";
+const HELP_DISMISS: &str = "Up/Down/PageUp/PageDown: scroll  Enter/Esc: back";
 
 pub(crate) fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
@@ -54,11 +54,18 @@ pub(crate) fn draw(frame: &mut Frame, app: &App) {
                 app.inputs()[*field]
             ),
             Color::Yellow,
+            app.scroll(),
             chunks[1],
         ),
-        Screen::Error(message) => draw_message(frame, "Error", message, Color::Red, chunks[1]),
-        Screen::Results { interactions } => draw_results(frame, interactions, chunks[1]),
-        Screen::DrugInfo { drug, facts } => draw_drug_info(frame, drug, facts, chunks[1]),
+        Screen::Error(message) => {
+            draw_message(frame, "Error", message, Color::Red, app.scroll(), chunks[1])
+        }
+        Screen::Results { interactions } => {
+            draw_results(frame, interactions, app.scroll(), chunks[1])
+        }
+        Screen::DrugInfo { drug, facts } => {
+            draw_drug_info(frame, drug, facts, app.scroll(), chunks[1])
+        }
     }
 
     let help = match app.screen() {
@@ -136,12 +143,25 @@ fn draw_candidates(
     frame.render_widget(list, area);
 }
 
-fn draw_message(frame: &mut Frame, title: &str, message: &str, color: Color, area: Rect) {
+fn draw_message(
+    frame: &mut Frame,
+    title: &str,
+    message: &str,
+    color: Color,
+    scroll: u16,
+    area: Rect,
+) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(title)
         .border_style(Style::default().fg(color));
-    frame.render_widget(Paragraph::new(message).block(block), area);
+    frame.render_widget(
+        Paragraph::new(message)
+            .block(block)
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0)),
+        area,
+    );
 }
 
 fn severity_color(severity: Severity) -> Color {
@@ -151,13 +171,19 @@ fn severity_color(severity: Severity) -> Color {
     }
 }
 
-fn draw_results(frame: &mut Frame, interactions: &[mensung_db::InteractionRecord], area: Rect) {
+fn draw_results(
+    frame: &mut Frame,
+    interactions: &[mensung_db::InteractionRecord],
+    scroll: u16,
+    area: Rect,
+) {
     if interactions.is_empty() {
         draw_message(
             frame,
             "Result",
             "No known interaction among the selected drugs.",
             Color::Green,
+            scroll,
             area,
         );
         return;
@@ -202,13 +228,20 @@ fn draw_results(frame: &mut Frame, interactions: &[mensung_db::InteractionRecord
     }
 
     let block = Block::default().borders(Borders::ALL).title("Interactions");
-    frame.render_widget(Paragraph::new(lines).block(block), area);
+    frame.render_widget(
+        Paragraph::new(lines)
+            .block(block)
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0)),
+        area,
+    );
 }
 
 fn draw_drug_info(
     frame: &mut Frame,
     drug: &mensung_db::DrugRecord,
     facts: &[mensung_db::DrugFactRecord],
+    scroll: u16,
     area: Rect,
 ) {
     let mut lines: Vec<Line> = Vec::new();
@@ -298,5 +331,11 @@ fn draw_drug_info(
     let block = Block::default()
         .borders(Borders::ALL)
         .title("Drug Information");
-    frame.render_widget(Paragraph::new(lines).block(block), area);
+    frame.render_widget(
+        Paragraph::new(lines)
+            .block(block)
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0)),
+        area,
+    );
 }

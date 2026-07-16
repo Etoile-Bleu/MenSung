@@ -16,6 +16,7 @@ use mensung_db::{Database, DrugFactRecord, DrugRecord, InteractionRecord};
 use mensung_domain::DrugId;
 
 const FIELD_COUNT: usize = 2;
+const PAGE_SCROLL_LINES: u16 = 10;
 
 /// What a name typed into a field is being resolved for, so
 /// `Screen::Candidates` knows what to do once the user confirms a match:
@@ -55,6 +56,7 @@ pub(crate) struct App<'a> {
     focused: usize,
     resolved: [Option<DrugRecord<'a>>; FIELD_COUNT],
     screen: Screen<'a>,
+    scroll: u16,
     should_quit: bool,
 }
 
@@ -66,6 +68,7 @@ impl<'a> App<'a> {
             focused: 0,
             resolved: [None, None],
             screen: Screen::Input,
+            scroll: 0,
             should_quit: false,
         }
     }
@@ -84,6 +87,19 @@ impl<'a> App<'a> {
 
     pub(crate) fn focused(&self) -> usize {
         self.focused
+    }
+
+    /// How many lines the current screen's content should be scrolled down
+    /// by. Reset to zero every time the screen changes, via `set_screen`, so
+    /// a long interaction result never leaves the next screen scrolled past
+    /// its own content.
+    pub(crate) fn scroll(&self) -> u16 {
+        self.scroll
+    }
+
+    fn set_screen(&mut self, screen: Screen<'a>) {
+        self.screen = screen;
+        self.scroll = 0;
     }
 
     pub(crate) fn handle_key(&mut self, key: KeyEvent) {
@@ -133,7 +149,7 @@ impl<'a> App<'a> {
         };
 
         match key.code {
-            KeyCode::Esc => self.screen = Screen::Input,
+            KeyCode::Esc => self.set_screen(Screen::Input),
             KeyCode::Down => *selected = (*selected + 1).min(candidates.len() - 1),
             KeyCode::Up => *selected = selected.saturating_sub(1),
             KeyCode::Enter => {
@@ -144,7 +160,7 @@ impl<'a> App<'a> {
                 match purpose {
                     LookupPurpose::CheckInteraction => {
                         self.resolved[field] = Some(chosen);
-                        self.screen = Screen::Input;
+                        self.set_screen(Screen::Input);
                         self.resolve_next();
                     }
                     LookupPurpose::ShowInfo => self.display_drug_info(chosen),
@@ -154,12 +170,23 @@ impl<'a> App<'a> {
         }
     }
 
+    /// Handles input on any screen that just shows content until the user
+    /// dismisses it (a result, an error, a drug's info): Up/Down scroll by
+    /// one line and PageUp/PageDown by a full page, for content taller than
+    /// the terminal; Esc or Enter dismiss back to the input screen.
     fn handle_dismiss_key(&mut self, key: KeyEvent) {
-        if matches!(key.code, KeyCode::Esc | KeyCode::Enter) {
-            self.inputs = [String::new(), String::new()];
-            self.resolved = [None, None];
-            self.focused = 0;
-            self.screen = Screen::Input;
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter => {
+                self.inputs = [String::new(), String::new()];
+                self.resolved = [None, None];
+                self.focused = 0;
+                self.set_screen(Screen::Input);
+            }
+            KeyCode::Up => self.scroll = self.scroll.saturating_sub(1),
+            KeyCode::Down => self.scroll = self.scroll.saturating_add(1),
+            KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(PAGE_SCROLL_LINES),
+            KeyCode::PageDown => self.scroll = self.scroll.saturating_add(PAGE_SCROLL_LINES),
+            _ => {}
         }
     }
 
@@ -184,22 +211,22 @@ impl<'a> App<'a> {
         match lookup_drug(self.db, query) {
             Ok(LookupOutcome::ExactMatch(drug)) => self.display_drug_info(drug),
             Ok(LookupOutcome::Candidates(candidates)) => {
-                self.screen = Screen::Candidates {
+                self.set_screen(Screen::Candidates {
                     field,
                     candidates,
                     selected: 0,
                     purpose: LookupPurpose::ShowInfo,
-                };
+                });
             }
-            Ok(LookupOutcome::NoMatch) => self.screen = Screen::NoMatch { field },
-            Err(err) => self.screen = Screen::Error(err.to_string()),
+            Ok(LookupOutcome::NoMatch) => self.set_screen(Screen::NoMatch { field }),
+            Err(err) => self.set_screen(Screen::Error(err.to_string())),
         }
     }
 
     fn display_drug_info(&mut self, drug: DrugRecord<'a>) {
         match self.db.drug_facts(drug.id()) {
-            Ok(facts) => self.screen = Screen::DrugInfo { drug, facts },
-            Err(err) => self.screen = Screen::Error(err.to_string()),
+            Ok(facts) => self.set_screen(Screen::DrugInfo { drug, facts }),
+            Err(err) => self.set_screen(Screen::Error(err.to_string())),
         }
     }
 
@@ -214,20 +241,20 @@ impl<'a> App<'a> {
                     self.resolved[field] = Some(drug);
                 }
                 Ok(LookupOutcome::Candidates(candidates)) => {
-                    self.screen = Screen::Candidates {
+                    self.set_screen(Screen::Candidates {
                         field,
                         candidates,
                         selected: 0,
                         purpose: LookupPurpose::CheckInteraction,
-                    };
+                    });
                     return;
                 }
                 Ok(LookupOutcome::NoMatch) => {
-                    self.screen = Screen::NoMatch { field };
+                    self.set_screen(Screen::NoMatch { field });
                     return;
                 }
                 Err(err) => {
-                    self.screen = Screen::Error(err.to_string());
+                    self.set_screen(Screen::Error(err.to_string()));
                     return;
                 }
             }
@@ -248,8 +275,8 @@ impl<'a> App<'a> {
             .collect();
 
         match check_interactions(self.db, &ids) {
-            Ok(interactions) => self.screen = Screen::Results { interactions },
-            Err(err) => self.screen = Screen::Error(err.to_string()),
+            Ok(interactions) => self.set_screen(Screen::Results { interactions }),
+            Err(err) => self.set_screen(Screen::Error(err.to_string())),
         }
     }
 }
@@ -629,5 +656,67 @@ mod tests {
             Screen::Results { interactions } => assert_eq!(interactions.len(), 1),
             other => panic!("expected Results, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn down_scrolls_a_content_screen_and_up_scrolls_it_back() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarin");
+        app.handle_key(alt_i());
+        assert_eq!(app.scroll(), 0);
+
+        app.handle_key(key(KeyCode::Down));
+        app.handle_key(key(KeyCode::Down));
+        assert_eq!(app.scroll(), 2);
+
+        app.handle_key(key(KeyCode::Up));
+        assert_eq!(app.scroll(), 1);
+    }
+
+    #[test]
+    fn scroll_never_goes_negative() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarin");
+        app.handle_key(alt_i());
+
+        app.handle_key(key(KeyCode::Up));
+        assert_eq!(app.scroll(), 0);
+    }
+
+    #[test]
+    fn page_down_scrolls_by_a_full_page() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarin");
+        app.handle_key(alt_i());
+
+        app.handle_key(key(KeyCode::PageDown));
+        assert_eq!(app.scroll(), PAGE_SCROLL_LINES);
+
+        app.handle_key(key(KeyCode::PageUp));
+        assert_eq!(app.scroll(), 0);
+    }
+
+    #[test]
+    fn dismissing_a_scrolled_screen_resets_scroll_for_the_next_one() {
+        let bytes = test_bytes();
+        let db = Database::open(&bytes).unwrap();
+        let mut app = App::new(&db);
+        type_str(&mut app, "Warfarin");
+        app.handle_key(alt_i());
+        app.handle_key(key(KeyCode::Down));
+        app.handle_key(key(KeyCode::Down));
+        assert_eq!(app.scroll(), 2);
+
+        app.handle_key(key(KeyCode::Enter));
+        type_str(&mut app, "Warfarin");
+        app.handle_key(alt_i());
+
+        assert_eq!(app.scroll(), 0);
     }
 }
